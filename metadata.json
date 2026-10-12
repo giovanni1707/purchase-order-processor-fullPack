@@ -1,0 +1,5 @@
+{
+  "name": "MULTIVAC Purchase Order",
+  "description": "Fills the 'Order list' and 'PO Multivac' sheets of Template_Purchase_Order_2026.xlsx from a MULTIVAC quotation PDF (Gemini double extraction, direct XML editing, full verification).",
+  "requestFramePermissions": []
+}
