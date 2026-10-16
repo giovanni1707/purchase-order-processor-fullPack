@@ -12,7 +12,7 @@ export const SUPPLIER_LABEL: Record<Supplier, string> = {
   multivac: 'Multivac',
   bizerba: 'Bizerba',
   handtmann: 'Handtmann',
-  other: 'Other',
+  other: 'Others',
 };
 
 export type ColumnKey = 'reference' | 'description' | 'price' | 'quantity';

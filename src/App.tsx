@@ -310,9 +310,9 @@ export default function App() {
       notices.push('The PO number and date at the top of PO Multivac come from the Template sheet and still show placeholders until you fill Template.');
       notices.push('Footer dates on PO Multivac and the rate-header date in Order list are fixed text and were left unchanged.');
     } else {
-      notices.push('Quotation_3rd Pty: column I (op) holds the ZAR to MUR rate and column T the EUR to MUR rate you entered.');
-      notices.push(`Only ${built2.pos.map((p) => p.name).join(', ') || 'Quotation_3rd Pty'} was filled; the other PO sheets are unchanged.`);
-      if (c.missingPo) notices.push('This workbook has no “PO Others” sheet, so only Quotation_3rd Pty was filled. Add a PO Others sheet (a copy of PO Bizerba) and run again to get the purchase order.');
+      notices.push(`${built2.costName}: column I (op) holds the ZAR to MUR rate and column T the EUR to MUR rate you entered.`);
+      notices.push(`Only ${[built2.costName, ...built2.pos.map((p) => p.name)].join(', ')} was filled; the other PO sheets are unchanged.`);
+      if (c.missingPo) notices.push(`This workbook has no “PO Others” sheet, so only ${built2.costName} was filled. Add a PO Others sheet (a copy of PO Bizerba) and run again to get the purchase order.`);
       notices.push('Unit Price on the PO reads the net unit price (column E), not the line total (column G), so Total Price is right when Qty is above 1.');
       notices.push('The PO number and date at the top of the PO come from the Template sheet and still show placeholders until you fill Template.');
       notices.push('Footer dates on the PO are fixed text and were left unchanged.');
@@ -414,7 +414,7 @@ export default function App() {
             {inspection && !inspection.ok && <p className="text-sm text-red-600">{inspection.error}</p>}
             {inspection?.ok && !inspection.modes[mode] && <p className="text-sm text-red-600">This workbook does not contain the {MODES[mode].label} sheets.</p>}
             {inspection?.ok && inspection.modes[mode] && inspection.missingPo[mode] && (
-              <p className="text-sm text-amber-700">This workbook has no “PO Others” sheet. Only Quotation_3rd Pty will be filled. Add a PO Others sheet to get the purchase order too.</p>
+              <p className="text-sm text-amber-700">This workbook has no “PO Others” sheet. Only {MODES[mode].costSheet} will be filled. Add a PO Others sheet to get the purchase order too.</p>
             )}
 
             <div className={secondRate ? 'grid gap-4 sm:grid-cols-2' : ''}>

@@ -55,7 +55,7 @@ export async function inspectWorkbook(buf: ArrayBuffer | Uint8Array): Promise<Wo
   res.ok = MODE_IDS.some((m) => res.modes[m]);
   if (!res.ok) {
     res.error =
-      "This is not the Template_Purchase_Order workbook (it needs 'Order list' + 'PO Multivac', or 'Quotation_3rd Pty' + 'PO Bizerba' / 'PO Handtmann').";
+      "This is not the Template_Purchase_Order workbook (it needs 'Order list' + 'PO Multivac', 'Quotation_3rd Pty' + 'PO Bizerba' / 'PO Handtmann', or 'Others_3rd Pty' + 'PO Others').";
   }
   return res;
 }

@@ -15,12 +15,13 @@ export interface ModeProfile {
 }
 
 const THIRD_PARTY_COST = 'Quotation_3rd Pty';
+const OTHERS_COST = 'Others_3rd Pty';
 
 export const MODES: Record<PoMode, ModeProfile> = {
   multivac: { id: 'multivac', label: 'Multivac', costSheet: 'Order list', poSheets: ['PO Multivac'] },
   bizerba: { id: 'bizerba', label: 'Bizerba', costSheet: THIRD_PARTY_COST, poSheets: ['PO Bizerba'], secondRateCol: 'T' },
   handtmann: { id: 'handtmann', label: 'Handtmann', costSheet: THIRD_PARTY_COST, poSheets: ['PO Handtmann'], secondRateCol: 'T' },
-  other: { id: 'other', label: 'Other', costSheet: THIRD_PARTY_COST, poSheets: ['PO Others'], poOptional: true, secondRateCol: 'T' },
+  other: { id: 'other', label: 'Others', costSheet: OTHERS_COST, poSheets: ['PO Others'], poOptional: true, secondRateCol: 'T' },
 };
 
 export const MODE_IDS = Object.keys(MODES) as PoMode[];
