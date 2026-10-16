@@ -504,14 +504,39 @@ export function validateOptions(o: FillOptions) {
   });
 }
 
+/** Resolves the cost sheet for a profile, checking costSheetCandidates if primary is not found. */
+export function resolveCostSheet(pkg: Package, profile: ModeProfile): SheetInfo {
+  const candidates = profile.costSheetCandidates && profile.costSheetCandidates.length > 0
+    ? profile.costSheetCandidates
+    : [profile.costSheet];
+  for (const cand of candidates) {
+    try {
+      return findSheet(pkg, cand);
+    } catch {
+      // try next candidate
+    }
+  }
+  return findSheet(pkg, profile.costSheet);
+}
+
 /** The PO sheet(s) of a type. A missing optional sheet (PO Others) is skipped; any other missing sheet is an error. */
 export function resolvePoSheets(pkg: Package, profile: ModeProfile): SheetInfo[] {
   const out: SheetInfo[] = [];
   for (const n of profile.poSheets) {
-    try {
-      out.push(findSheet(pkg, n));
-    } catch (e) {
-      if (!profile.poOptional) throw e;
+    const candidates = profile.poSheetCandidates?.[n] ?? [n];
+    let found: SheetInfo | null = null;
+    for (const cand of candidates) {
+      try {
+        found = findSheet(pkg, cand);
+        break;
+      } catch {
+        // try next candidate
+      }
+    }
+    if (found) {
+      out.push(found);
+    } else if (!profile.poOptional) {
+      throw new TemplateError(`Sheet "${n}" not found (or ambiguous).`);
     }
   }
   return out;
@@ -536,7 +561,7 @@ export async function fillWorkbook(
   const profile = MODES[mode];
   const pkg = await Package.load(template);
   const sst = sharedStrings(pkg);
-  const cost = findSheet(pkg, profile.costSheet);
+  const cost = resolveCostSheet(pkg, profile);
   const poSheets = resolvePoSheets(pkg, profile);
   const costDoc = parseXml(pkg.get(cost.part));
   const poDocs = poSheets.map((p) => parseXml(pkg.get(p.part)));

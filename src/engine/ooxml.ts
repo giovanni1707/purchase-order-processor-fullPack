@@ -225,13 +225,26 @@ export function sheetParts(pkg: Package): SheetInfo[] {
 }
 
 const normName = (x: string) => x.toLowerCase().replace(/[\s_-]+/g, ' ').trim();
+const looseNorm = (x: string) =>
+  x
+    .toLowerCase()
+    .replace(/\bparty\b/g, 'pty')
+    .replace(/\bothers\b/g, 'other')
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 export function findSheet(pkg: Package, wanted: string): SheetInfo {
   const sheets = sheetParts(pkg);
   const exact = sheets.find((s) => s.name === wanted);
   if (exact) return exact;
-  // tolerant: ignore case, surrounding spaces and the difference between "_", "-" and " "
-  for (const norm of [(x: string) => x.trim().toLowerCase(), normName]) {
+  // tolerant: ignore case, surrounding spaces, symbols, and abbreviations
+  for (const norm of [
+    (x: string) => x.trim().toLowerCase(),
+    normName,
+    looseNorm,
+    (x: string) => looseNorm(x).replace(/\s+/g, ''),
+  ]) {
     const hits = sheets.filter((s) => norm(s.name) === norm(wanted));
     if (hits.length === 1) return hits[0];
   }

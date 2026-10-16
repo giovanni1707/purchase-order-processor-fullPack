@@ -3,7 +3,7 @@
  * The download is only offered when every check passes.
  */
 import { buildCalc, calcValue } from './calc';
-import { FillOptions, findRowByText, resolvePoSheets } from './fill';
+import { FillOptions, findRowByText, resolveCostSheet, resolvePoSheets } from './fill';
 import { MODES, manualCostCols } from './profiles';
 import {
   ERROR_VALUES,
@@ -59,8 +59,8 @@ export async function verifyWorkbook(inp: VerifyInput): Promise<CheckResult[]> {
   const out = await Package.load(inp.output);
   const oSst = sharedStrings(orig);
   const nSst = sharedStrings(out);
-  const oOl = findSheet(orig, profile.costSheet);
-  const nOl = findSheet(out, profile.costSheet);
+  const oOl = resolveCostSheet(orig, profile);
+  const nOl = resolveCostSheet(out, profile);
   const COST = nOl.name;
   const poNames = resolvePoSheets(orig, profile);
   const nPoNames = resolvePoSheets(out, profile);

@@ -1,10 +1,11 @@
-import { findRowByText, resolvePoSheets } from './fill';
+import { findRowByText, resolveCostSheet, resolvePoSheets } from './fill';
 import { MODES, MODE_IDS, PoMode } from './profiles';
-import { Package, cellMap, cellText, findSheet, parseXml, rowMap, sharedStrings } from './ooxml';
+import { Package, cellMap, cellText, parseXml, rowMap, sharedStrings, sheetParts } from './ooxml';
 
 export interface WorkbookInspection {
   ok: boolean;
   error?: string;
+  sheetNames: string[];
   /** which purchase-order types this workbook can produce (cost sheet and PO sheet present) */
   modes: Record<PoMode, boolean>;
   /** current text of the first Details cell of the type's PO sheet (the template ships sample text there) */
@@ -19,6 +20,7 @@ const empty = <T,>(v: T): Record<PoMode, T> => ({ multivac: v, bizerba: v, handt
 export async function inspectWorkbook(buf: ArrayBuffer | Uint8Array): Promise<WorkbookInspection> {
   const res: WorkbookInspection = {
     ok: false,
+    sheetNames: [],
     modes: empty(false),
     details: { multivac: [], bizerba: [], handtmann: [], other: [] },
     missingPo: empty(false),
@@ -29,11 +31,16 @@ export async function inspectWorkbook(buf: ArrayBuffer | Uint8Array): Promise<Wo
   } catch {
     return { ...res, error: 'This file could not be read as an Excel workbook (.xlsx).' };
   }
+  try {
+    res.sheetNames = sheetParts(pkg).map((s) => s.name);
+  } catch {
+    res.sheetNames = [];
+  }
   const sst = sharedStrings(pkg);
   for (const id of MODE_IDS) {
     try {
       const profile = MODES[id];
-      findSheet(pkg, profile.costSheet);
+      resolveCostSheet(pkg, profile);
       const pos = resolvePoSheets(pkg, profile);
       const texts: string[] = [];
       for (const po of pos) {
@@ -55,7 +62,7 @@ export async function inspectWorkbook(buf: ArrayBuffer | Uint8Array): Promise<Wo
   res.ok = MODE_IDS.some((m) => res.modes[m]);
   if (!res.ok) {
     res.error =
-      "This is not the Template_Purchase_Order workbook (it needs 'Order list' + 'PO Multivac', 'Quotation_3rd Pty' + 'PO Bizerba' / 'PO Handtmann', or 'Others_3rd Pty' + 'PO Others').";
+      `This is not the Template_Purchase_Order workbook (sheets found: ${res.sheetNames.join(', ') || 'none'}). It needs 'Order list' + 'PO Multivac', 'Quotation_3rd Pty' + 'PO Bizerba' / 'PO Handtmann', or 'Others_3rd Pty' + 'PO Others'.`;
   }
   return res;
 }

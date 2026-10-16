@@ -411,8 +411,11 @@ export default function App() {
 
             <DropZone label="Quotation PDF" hint="Drop or click to choose" accept="application/pdf,.pdf" file={pdf} icon="pdf" onFile={setPdf} />
             <DropZone label="Template_Purchase_Order_2026.xlsx" hint="Drop or click to choose" accept=".xlsx" file={xlsx} icon="xlsx" onFile={chooseWorkbook} />
-            {inspection && !inspection.ok && <p className="text-sm text-red-600">{inspection.error}</p>}
-            {inspection?.ok && !inspection.modes[mode] && <p className="text-sm text-red-600">This workbook does not contain the {MODES[mode].label} sheets.</p>}
+            {inspection?.ok && !inspection.modes[mode] && (
+              <p className="text-sm text-red-600">
+                This workbook does not contain the {MODES[mode].label} sheets. Sheets detected in this file: {inspection.sheetNames.join(', ')}.
+              </p>
+            )}
             {inspection?.ok && inspection.modes[mode] && inspection.missingPo[mode] && (
               <p className="text-sm text-amber-700">This workbook has no “PO Others” sheet. Only {MODES[mode].costSheet} will be filled. Add a PO Others sheet to get the purchase order too.</p>
             )}
