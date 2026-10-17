@@ -58,7 +58,7 @@ const MAX_PDF_BYTES = 3_200_000;
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const COLUMN_KEYS: ColumnKey[] = ['reference', 'description', 'price', 'quantity'];
 const OTHER_PLACEHOLDER: ColumnMap = { reference: 'e.g. Product Code', description: 'e.g. Item Details', price: 'e.g. Unit Price', quantity: 'e.g. Qty' };
-const EXPECTED_CURRENCY: Record<PoMode, string> = { multivac: 'EUR', bizerba: 'ZAR', handtmann: 'ZAR', other: 'ZAR' };
+const EXPECTED_CURRENCY: Record<PoMode, string> = { multivac: 'EUR', bizerba: 'ZAR', handtmann: 'ZAR', other: 'EUR' };
 
 const readBase64 = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -141,12 +141,12 @@ export default function App() {
   const runId = useRef(0);
 
   const isRate = (v: string) => RATE_RE.test(v.trim()) && Number(v) > 0;
-  const secondRate = !!MODES[mode].secondRateCol;
+  const secondRate = mode === 'bizerba' || mode === 'handtmann';
   const rateOk = isRate(rate);
   const rate2Ok = !secondRate || isRate(rate2);
   const colsOk = mode !== 'other' || COLUMN_KEYS.every((k) => cols[k].trim());
   const rateError = rate.trim() !== '' && !rateOk ? 'Enter one plain number, e.g. 54.99' : '';
-  const rate2Error = rate2.trim() !== '' && !isRate(rate2) ? 'Enter one plain number, e.g. 54.99' : '';
+  const rate2Error = secondRate && rate2.trim() !== '' && !isRate(rate2) ? 'Enter one plain number, e.g. 54.99' : '';
   const existingDetails = inspection?.details[mode] ?? [];
   const replaceMissing = existingDetails.length > 0 && detailsChoice === 'replace' && !detailsText.trim();
   const canRun = !!pdf && !!xlsx && inspection?.ok === true && inspection.modes[mode] && rateOk && rate2Ok && colsOk && !replaceMissing && phase !== 'running';
@@ -227,7 +227,7 @@ export default function App() {
         template: new Uint8Array(await xlsx.arrayBuffer()),
         fileName: xlsx.name,
         rate: Number(rate.trim()),
-        rate2: secondRate ? Number(rate2.trim()) : undefined,
+        rate2: secondRate ? Number(rate2.trim()) : (MODES[mode].secondRateCol ? Number(rate.trim()) : undefined),
         detailsChoice,
         detailsText: detailsText.trim(),
         existingDetails,
@@ -309,6 +309,13 @@ export default function App() {
       notices.push('Order list columns A, B, E, F, I now hold typed values instead of links to Quotation_Multivac.');
       notices.push('The PO number and date at the top of PO Multivac come from the Template sheet and still show placeholders until you fill Template.');
       notices.push('Footer dates on PO Multivac and the rate-header date in Order list are fixed text and were left unchanged.');
+    } else if (c.mode === 'other') {
+      notices.push(`${built2.costName}: column I holds the EUR to MUR rate (${c.rate}) you entered.`);
+      notices.push(`Only ${[built2.costName, ...built2.pos.map((p) => p.name)].join(', ')} was filled; the other PO sheets are unchanged.`);
+      if (c.missingPo) notices.push(`This workbook has no “PO Others” sheet, so only ${built2.costName} was filled. Add a PO Others sheet (a copy of PO Bizerba) and run again to get the purchase order.`);
+      notices.push('Unit Price on the PO reads the net unit price (column E), not the line total (column G), so Total Price is right when Qty is above 1.');
+      notices.push('The PO number and date at the top of the PO come from the Template sheet and still show placeholders until you fill Template.');
+      notices.push('Footer dates on the PO are fixed text and were left unchanged.');
     } else {
       notices.push(`${built2.costName}: column I (op) holds the ZAR to MUR rate and column T the EUR to MUR rate you entered.`);
       notices.push(`Only ${[built2.costName, ...built2.pos.map((p) => p.name)].join(', ')} was filled; the other PO sheets are unchanged.`);
@@ -423,7 +430,11 @@ export default function App() {
             <div className={secondRate ? 'grid gap-4 sm:grid-cols-2' : ''}>
               <div>
                 <label className="text-sm font-medium text-slate-800" htmlFor="rate">
-                  {secondRate ? 'ZAR to MUR rate (1 ZAR = ? MUR)' : 'Exchange rate (1 EUR = ? MUR)'}
+                  {mode === 'other'
+                    ? 'EUR to MUR Rate (1Eur = ?Mur)'
+                    : secondRate
+                      ? 'ZAR to MUR rate (1 ZAR = ? MUR)'
+                      : 'Exchange rate (1 EUR = ? MUR)'}
                 </label>
                 <input
                   id="rate"
@@ -517,7 +528,7 @@ export default function App() {
             )}
 
             <p className="text-xs text-slate-600">
-              {MODES[result.mode].label} · {result.mode === 'multivac' ? `Rate ${result.rate}` : `ZAR to MUR ${result.rate} · EUR to MUR ${result.rate2}`} ·{' '}
+              {MODES[result.mode].label} · {result.mode === 'multivac' || result.mode === 'other' ? `Rate ${result.rate}` : `ZAR to MUR ${result.rate} · EUR to MUR ${result.rate2}`} ·{' '}
               {result.sheets.map((n) => `${n} ${result.items.length} rows`).join(' · ')} · Total Exworks {result.total.toFixed(2)}
               {result.documentTotal !== null ? ` vs quotation total ${result.documentTotal.toFixed(2)}` : ''} · Quotation {result.quotationNo}
             </p>
