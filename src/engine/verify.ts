@@ -146,6 +146,8 @@ export async function verifyWorkbook(inp: VerifyInput): Promise<CheckResult[]> {
       if (txt('B') !== it.description || !isText('B')) problems.push('part name');
       if (num('E') !== it.netPrice) problems.push('net price');
       if (num('F') !== it.quantity) problems.push('quantity');
+      const gF = fText(cells['G']);
+      if (gF !== `E${r}*F${r}` && gF !== `F${r}*E${r}`) problems.push('total exworks formula');
       if (num('I') !== rate) problems.push('exchange rate');
       if (profile.secondRateCol && num(profile.secondRateCol) !== inp.opts.rate2) problems.push('EUR rate');
       if (num('O') !== duty) problems.push('duty');
@@ -170,7 +172,7 @@ export async function verifyWorkbook(inp: VerifyInput): Promise<CheckResult[]> {
     const bad: string[] = [];
     for (const [col, c] of Object.entries(cellMap(oRows.get(oTotals)!))) {
       const of = fText(c);
-      if (!of || !new RegExp(`^SUM\\(${col}${first}(?::${col}\\d+)?\\)$`).test(of)) continue;
+      if (!of || !new RegExp(`^SUM\\(\\$?${col}\\$?${first}(?::\\$?${col}\\$?\\d+)?\\)$`).test(of)) continue;
       if (!tr || fText(cellMap(tr)[col]) !== `SUM(${col}${first}:${col}${last})`) bad.push(col);
     }
     check(`${COST} totals SUM ranges cover exactly rows ${first} to ${last}`, !!tr && bad.length === 0, `Columns: ${bad.join(', ')}`);

@@ -265,7 +265,7 @@ function insertItemRows(root: Element, templateRowNo: number, insertAt: number, 
 
 /** Totals row: SUM(X<first>:X<anything>) / SUM(X<first>) -> SUM(X<first>:X<last>). */
 function rewriteTotalRanges(rowEl: Element, first: number, last: number) {
-  const re = new RegExp(`^SUM\\(([A-Z]+)${first}(?::([A-Z]+)\\d+)?\\)$`);
+  const re = new RegExp(`^SUM\\(\\$?([A-Z]+)\\$?${first}(?::\\$?([A-Z]+)\\$?\\d+)?\\)$`);
   for (const c of kids(rowEl, 'c')) {
     const f = child(c, 'f');
     const text = f?.textContent || '';
@@ -329,16 +329,20 @@ function fillCostSheet(
   rm = rowMap(root);
   items.forEach((it, i) => {
     const row = rm.get(first + i)!;
+    const r = first + i;
     setText(getCell(row, 'A', styles), it.reference);
     setText(getCell(row, 'B', styles), it.description);
     setNumber(getCell(row, 'E', styles), it.netPrice);
     setNumber(getCell(row, 'F', styles), it.quantity);
+    setFormula(getCell(row, 'G', styles), `E${r}*F${r}`);
     setNumber(getCell(row, 'I', styles), rate);
     for (const [col, v] of Object.entries(extra)) setNumber(getCell(row, col, styles), v);
     setNumber(getCell(row, 'O', styles), duty);
     setNumber(getCell(row, 'P', styles), vat);
   });
-  rewriteTotalRanges(rm.get(totals + k)!, first, last);
+  const totalsRow = rm.get(totals + k)!;
+  rewriteTotalRanges(totalsRow, first, last);
+  setFormula(getCell(totalsRow, 'G', styles), `SUM(G${first}:G${last})`);
   return { header: hdr, first, last, totalsOld: totals, totalsNew: totals + k, k, existing };
 }
 
@@ -494,6 +498,9 @@ function editWorkbookParts(pkg: Package, shifts: Record<string, [number, number]
 export function validateOptions(o: FillOptions) {
   if (!o.items.length) throw new TemplateError('The quotation has no items.');
   if (!(o.rate > 0)) throw new TemplateError('The exchange rate must be a positive number.');
+  if (o.mode === 'other' && (o.rate2 === undefined || o.rate2 === null)) {
+    o.rate2 = o.rate;
+  }
   if (MODES[o.mode ?? 'multivac'].secondRateCol && !(o.rate2 && o.rate2 > 0)) {
     throw new TemplateError('The EUR to MUR rate must be a positive number.');
   }

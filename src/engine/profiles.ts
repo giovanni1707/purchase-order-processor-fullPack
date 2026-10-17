@@ -43,5 +43,5 @@ export const MODE_IDS = Object.keys(MODES) as PoMode[];
 
 /** Columns of the cost sheet that are typed by the app (everything else keeps the template's formulas). */
 export function manualCostCols(mode: PoMode): string[] {
-  return MODES[mode].secondRateCol ? ['A', 'B', 'E', 'F', 'I', 'T', 'O', 'P'] : ['A', 'B', 'E', 'F', 'I', 'O', 'P'];
+  return MODES[mode].secondRateCol ? ['A', 'B', 'E', 'F', 'G', 'I', 'T', 'O', 'P'] : ['A', 'B', 'E', 'F', 'G', 'I', 'O', 'P'];
 }
