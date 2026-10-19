@@ -305,20 +305,28 @@ export default function App() {
     if (w.priceKind === 'line' && c.mode !== 'handtmann') notices.push('You said the price column is a line total, so the unit price is Price ÷ Quantity.');
     if (c.mode === 'handtmann') notices.push('Handtmann: unit price = Net Price ÷ Quantity.');
     notices.push(...minorNotices);
+    const filledSheets = [
+      built2.costName,
+      ...built2.pos.map((p) => p.name),
+      ...(built2.xero ? [built2.xero.name] : []),
+    ];
     if (c.mode === 'multivac') {
       notices.push('Order list columns A, B, E, F, I now hold typed values instead of links to Quotation_Multivac.');
+      if (built2.xero) notices.push(`${built2.xero.name} columns A, B, C, D are populated from ${built2.costName} columns A, B, E, F.`);
       notices.push('The PO number and date at the top of PO Multivac come from the Template sheet and still show placeholders until you fill Template.');
       notices.push('Footer dates on PO Multivac and the rate-header date in Order list are fixed text and were left unchanged.');
     } else if (c.mode === 'other') {
       notices.push(`${built2.costName}: column I holds the EUR to MUR rate (${c.rate}) you entered.`);
-      notices.push(`Only ${[built2.costName, ...built2.pos.map((p) => p.name)].join(', ')} was filled; the other PO sheets are unchanged.`);
+      notices.push(`Only ${filledSheets.join(', ')} was filled; the other PO sheets are unchanged.`);
+      if (built2.xero) notices.push(`${built2.xero.name} columns A, B, C, D are populated from ${built2.costName} columns A, B, E, F.`);
       if (c.missingPo) notices.push(`This workbook has no “PO Others” sheet, so only ${built2.costName} was filled. Add a PO Others sheet (a copy of PO Bizerba) and run again to get the purchase order.`);
       notices.push('Unit Price on the PO reads the net unit price (column E), not the line total (column G), so Total Price is right when Qty is above 1.');
       notices.push('The PO number and date at the top of the PO come from the Template sheet and still show placeholders until you fill Template.');
       notices.push('Footer dates on the PO are fixed text and were left unchanged.');
     } else {
       notices.push(`${built2.costName}: column I (op) holds the ZAR to MUR rate and column T the EUR to MUR rate you entered.`);
-      notices.push(`Only ${[built2.costName, ...built2.pos.map((p) => p.name)].join(', ')} was filled; the other PO sheets are unchanged.`);
+      notices.push(`Only ${filledSheets.join(', ')} was filled; the other PO sheets are unchanged.`);
+      if (built2.xero) notices.push(`${built2.xero.name} columns A, B, C, D are populated from ${built2.costName} columns A, B, E, F.`);
       if (c.missingPo) notices.push(`This workbook has no “PO Others” sheet, so only ${built2.costName} was filled. Add a PO Others sheet (a copy of PO Bizerba) and run again to get the purchase order.`);
       notices.push('Unit Price on the PO reads the net unit price (column E), not the line total (column G), so Total Price is right when Qty is above 1.');
       notices.push('The PO number and date at the top of the PO come from the Template sheet and still show placeholders until you fill Template.');
@@ -331,7 +339,7 @@ export default function App() {
 
     setResult({
       mode: c.mode,
-      sheets: [built2.costName, ...built2.pos.map((p) => p.name)],
+      sheets: filledSheets,
       items,
       quotationNo,
       documentTotal: docTotal,
@@ -389,7 +397,7 @@ export default function App() {
                 })}
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Fills: {[MODES[mode].costSheet, ...MODES[mode].poSheets].join(', ')}. {TYPE_HINT[mode]}
+                Fills: {[MODES[mode].costSheet, ...MODES[mode].poSheets, 'XERO Costing'].join(', ')}. {TYPE_HINT[mode]}
               </p>
             </div>
 

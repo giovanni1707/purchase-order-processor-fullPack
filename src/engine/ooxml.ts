@@ -44,9 +44,10 @@ export function splitRef(ref: string): [string, number] {
   return [m[1], parseInt(m[2], 10)];
 }
 
-// Unqualified A1 reference. The look-behind skips sheet-qualified references
-// (Sheet!A1, 'My sheet'!A1) and names; the look-ahead skips function names.
-const REF_SRC = "(?<![A-Za-z0-9_!'.$])(\\$?)([A-Z]{1,3})(\\$?)(\\d+)(?![A-Za-z0-9_(!])";
+// Unqualified A1 reference. The first branch skips sheet-qualified references and ranges
+// (Sheet!A1, 'My sheet'!A1:B2); the look-behind skips names; the look-ahead skips function names.
+const QUALIFIED_OR_REF_RE =
+  /(?:'(?:[^']|'')+'|[A-Za-z0-9_.]+)!\$?[A-Z]{1,3}\$?\d+(?::\$?[A-Z]{1,3}\$?\d+)?|(?<![A-Za-z0-9_!'.$])(\$?)([A-Z]{1,3})(\$?)(\d+)(?![A-Za-z0-9_(!])/g;
 
 /** Apply fn(col, absCol, absRow, row) -> newRow to each unqualified A1 reference. Text in "quotes" is left alone. */
 export function mapRefs(
@@ -55,7 +56,8 @@ export function mapRefs(
 ): string {
   const parts = formula.split(/("(?:[^"]|"")*")/);
   for (let i = 0; i < parts.length; i += 2) {
-    parts[i] = parts[i].replace(new RegExp(REF_SRC, 'g'), (_m, ac, col, ar, row) => {
+    parts[i] = parts[i].replace(QUALIFIED_OR_REF_RE, (m, ac, col, ar, row) => {
+      if (col === undefined) return m;
       const nr = fn(col, ac === '$', ar === '$', parseInt(row, 10));
       return `${ac}${col}${ar}${nr}`;
     });

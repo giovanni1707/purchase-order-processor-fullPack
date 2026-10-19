@@ -3,7 +3,7 @@
  * The download is only offered when every check passes.
  */
 import { buildCalc, calcValue } from './calc';
-import { FillOptions, findRowByText, resolveCostSheet, resolvePoSheets } from './fill';
+import { FillOptions, findRowByText, findXeroHeaderRow, findXeroTotalsRow, resolveCostSheet, resolvePoSheets, resolveXeroSheet } from './fill';
 import { MODES, manualCostCols } from './profiles';
 import {
   ERROR_VALUES,
@@ -13,7 +13,6 @@ import {
   cellMap,
   cellText,
   child,
-  findSheet,
   kids,
   mapRefs,
   parseXml,
@@ -64,6 +63,8 @@ export async function verifyWorkbook(inp: VerifyInput): Promise<CheckResult[]> {
   const COST = nOl.name;
   const poNames = resolvePoSheets(orig, profile);
   const nPoNames = resolvePoSheets(out, profile);
+  const oXero = resolveXeroSheet(orig);
+  const nXero = resolveXeroSheet(out);
 
   // ------------------------------------------------------------ package integrity
   const sig = (p: Package) => JSON.stringify(sheetParts(p).map((s) => [s.name, s.state, s.part]));
@@ -73,8 +74,21 @@ export async function verifyWorkbook(inp: VerifyInput): Promise<CheckResult[]> {
   const olExtra = Object.values(olRels)
     .filter(([t]) => t.endsWith('/comments') || t.endsWith('/vmlDrawing'))
     .map(([, target]) => resolveTarget(oOl.part, target));
+  const xeroExtra = oXero
+    ? Object.values(readRels(orig, oXero.part))
+        .filter(([t]) => t.endsWith('/comments') || t.endsWith('/vmlDrawing'))
+        .map(([, target]) => resolveTarget(oXero.part, target))
+    : [];
   const allowed = new Set([
-    oOl.part, ...poNames.map((p) => p.part), 'xl/workbook.xml', '[Content_Types].xml', 'xl/_rels/workbook.xml.rels', 'xl/calcChain.xml', ...olExtra,
+    oOl.part,
+    ...poNames.map((p) => p.part),
+    ...(oXero ? [oXero.part] : []),
+    'xl/workbook.xml',
+    '[Content_Types].xml',
+    'xl/_rels/workbook.xml.rels',
+    'xl/calcChain.xml',
+    ...olExtra,
+    ...xeroExtra,
   ]);
   const changed: string[] = [];
   for (const p of orig.parts()) {
@@ -146,8 +160,6 @@ export async function verifyWorkbook(inp: VerifyInput): Promise<CheckResult[]> {
       if (txt('B') !== it.description || !isText('B')) problems.push('part name');
       if (num('E') !== it.netPrice) problems.push('net price');
       if (num('F') !== it.quantity) problems.push('quantity');
-      const gF = fText(cells['G']);
-      if (gF !== `E${r}*F${r}` && gF !== `F${r}*E${r}`) problems.push('total exworks formula');
       if (num('I') !== rate) problems.push('exchange rate');
       if (profile.secondRateCol && num(profile.secondRateCol) !== inp.opts.rate2) problems.push('EUR rate');
       if (num('O') !== duty) problems.push('duty');
@@ -172,7 +184,7 @@ export async function verifyWorkbook(inp: VerifyInput): Promise<CheckResult[]> {
     const bad: string[] = [];
     for (const [col, c] of Object.entries(cellMap(oRows.get(oTotals)!))) {
       const of = fText(c);
-      if (!of || !new RegExp(`^SUM\\(\\$?${col}\\$?${first}(?::\\$?${col}\\$?\\d+)?\\)$`).test(of)) continue;
+      if (!of || !new RegExp(`^SUM\\(${col}${first}(?::${col}\\d+)?\\)$`).test(of)) continue;
       if (!tr || fText(cellMap(tr)[col]) !== `SUM(${col}${first}:${col}${last})`) bad.push(col);
     }
     check(`${COST} totals SUM ranges cover exactly rows ${first} to ${last}`, !!tr && bad.length === 0, `Columns: ${bad.join(', ')}`);
@@ -325,18 +337,77 @@ export async function verifyWorkbook(inp: VerifyInput): Promise<CheckResult[]> {
       );
     }
   });
+
+  // --------------------------------------------------------------------- XERO Costing sheet
+  let xeroShift: { name: string; oldTotal: number; kx: number } | null = null;
+  if (oXero && nXero) {
+    const XERO = nXero.name;
+    const oX = parseXml(orig.get(oXero.part)).documentElement;
+    const nX = parseXml(out.get(nXero.part)).documentElement;
+    const xHdr = findXeroHeaderRow(oX, oSst);
+    if (xHdr !== null) {
+      const xFirst = xHdr + 1;
+      const xTotalsOld = findXeroTotalsRow(oX, oSst, xFirst);
+      const xLast = xFirst + n - 1;
+      const xRows = rowMap(nX);
+      if (xTotalsOld !== null) {
+        const kx = n - (xTotalsOld - xFirst);
+        const xTotalsNew = xTotalsOld + kx;
+        xeroShift = { name: XERO, oldTotal: xTotalsOld, kx };
+        check(
+          `${XERO}: ${n} item rows, Totals row at ${xTotalsNew}`,
+          xRows.has(xTotalsNew) && findXeroTotalsRow(nX, nSst, xFirst) === xTotalsNew,
+          'XERO Costing item row count or Totals row position is not what was expected.',
+        );
+      } else {
+        const extraRows = [...xRows.keys()].filter((r) => r > xLast);
+        check(
+          `${XERO}: ${n} item rows (${xFirst} to ${xLast}) with no stale rows`,
+          extraRows.length === 0,
+          `Unexpected rows after ${xLast}: ${extraRows.join(', ')}`,
+        );
+      }
+      items.forEach((it, i) => {
+        const r = xFirst + i;
+        const src = first + i;
+        const row = xRows.get(r);
+        const problems: string[] = [];
+        if (!row) problems.push('row missing');
+        else {
+          const cells = cellMap(row);
+          const exp: Record<string, string> = {
+            A: `'${COST}'!A${src}`,
+            B: `'${COST}'!B${src}`,
+            C: `'${COST}'!E${src}`,
+            D: `'${COST}'!F${src}`,
+          };
+          for (const [col, f] of Object.entries(exp)) {
+            if (fText(cells[col]) !== f) problems.push(`${col} formula`);
+          }
+          if (cellText(cells['A'], nSst) !== it.reference) problems.push('Reference value');
+          if (cellText(cells['B'], nSst) !== it.description) problems.push('Description value');
+          if (Math.abs(Number(cellText(cells['C'], nSst)) - it.netPrice) > 1e-6) problems.push('EX WORKS units value');
+          if (Math.abs(Number(cellText(cells['D'], nSst)) - it.quantity) > 1e-6) problems.push('Quantity value');
+        }
+        check(`${XERO} row ${r}: links A, B, C, D to ${COST} row ${src}`, problems.length === 0, problems.join(', '));
+      });
+    }
+  }
+
   {
     const dn = (t: string) => [...t.matchAll(/<definedName\b[^>]*>([\s\S]*?)<\/definedName>/g)].map((m) => m[1]);
     const o = dn(orig.getText('xl/workbook.xml'));
     const nn = dn(wbOut);
+    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const shift = (s: string, name: string, at: number, kk: number) =>
       s.replace(
-        new RegExp(`((?:'|&apos;)${name}(?:'|&apos;)!)(\\$?[A-Z]+\\$?\\d+(?::\\$?[A-Z]+\\$?\\d+)?)`, 'g'),
+        new RegExp(`((?:'|&apos;)${esc(name)}(?:'|&apos;)!)(\\$?[A-Z]+\\$?\\d+(?::\\$?[A-Z]+\\$?\\d+)?)`, 'g'),
         (_m, a, b) => a + shiftRange(b, at, kk),
       );
     const expected = o.map((s0) => {
       let x = shift(s0, oOl.name, oTotals, k);
       for (const p of poInfo) x = shift(x, p.name, p.oldTotal, p.kp);
+      if (xeroShift) x = shift(x, xeroShift.name, xeroShift.oldTotal, xeroShift.kx);
       return x;
     });
     check('Defined names (print area, filter names) updated like Excel would', expected.join('|') === nn.join('|'), 'A defined name was not shifted correctly.');

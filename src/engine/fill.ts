@@ -27,6 +27,7 @@ import {
   mapRefs,
   neededRowHeight,
   newEl,
+  nToCol,
   parseXml,
   readRels,
   resolveTarget,
@@ -42,6 +43,16 @@ import { MODES, ModeProfile, PoMode } from './profiles';
 
 export const ORDER_SHEET = 'Order list';
 export const PO_SHEET = 'PO Multivac';
+export const XERO_SHEET = 'XERO Costing';
+const XERO_CANDIDATES = [
+  'XERO Costing',
+  'Xero Costing',
+  'XERO_Costing',
+  'Xero_Costing',
+  'XERO-Costing',
+  'Xero-Costing',
+  'XERO',
+];
 const UNSUPPORTED = [
   'conditionalFormatting', 'dataValidations', 'autoFilter', 'rowBreaks', 'colBreaks',
   'hyperlinks', 'tableParts', 'drawing', 'extLst', 'ignoredErrors',
@@ -98,6 +109,22 @@ export interface PoSheetResult {
   info: PoInfo;
 }
 
+export interface XeroInfo {
+  header: number;
+  first: number;
+  last: number;
+  totalsOld: number | null;
+  totalsNew: number | null;
+  k: number;
+  existing: number;
+}
+
+export interface XeroSheetResult {
+  name: string;
+  part: string;
+  info: XeroInfo;
+}
+
 export interface FillResult {
   bytes: Uint8Array;
   pkg: Package;
@@ -106,6 +133,7 @@ export interface FillResult {
   costName: string;
   order: OrderInfo;
   pos: PoSheetResult[];
+  xero?: XeroSheetResult;
   commentParts: string[];
 }
 
@@ -205,7 +233,14 @@ export function findRowByText(
  * are shifted accordingly.
  */
 function insertItemRows(root: Element, templateRowNo: number, insertAt: number, k: number) {
-  if (k <= 0) return;
+  if (k === 0) return;
+  const sheetData = child(root, 'sheetData')!;
+  if (k < 0) {
+    for (const row of rowsOf(root)) {
+      const r = parseInt(row.getAttribute('r')!, 10);
+      if (r >= insertAt + k && r < insertAt) sheetData.removeChild(row);
+    }
+  }
   const rows = rowsOf(root);
   // 1. shift formulas everywhere (item rows refer to the totals row with K$4-style refs)
   for (const row of rows) {
@@ -235,26 +270,27 @@ function insertItemRows(root: Element, templateRowNo: number, insertAt: number, 
     }
   }
   // 3. new rows are exact copies of the (already shifted) template row
-  const template = rowMap(root).get(templateRowNo)!;
-  const sheetData = child(root, 'sheetData')!;
-  const anchor = rowsOf(root).find((row) => parseInt(row.getAttribute('r')!, 10) >= insertAt + k) || null;
-  for (let i = 0; i < k; i++) {
-    const newNo = insertAt + i;
-    const nr = template.cloneNode(true) as Element;
-    nr.setAttribute('r', String(newNo));
-    for (const c of kids(nr, 'c')) {
-      const [col] = splitRef(c.getAttribute('r')!);
-      c.setAttribute('r', `${col}${newNo}`);
-      const f = child(c, 'f');
-      if (f) {
-        for (const a of ['t', 'ref', 'si']) f.removeAttribute(a);
-        const text = f.textContent || '';
-        if (text) {
-          f.textContent = mapRefs(text, (_c, _ac, ar, r) => (r === templateRowNo && !ar ? newNo : r));
+  if (k > 0) {
+    const template = rowMap(root).get(templateRowNo)!;
+    const anchor = rowsOf(root).find((row) => parseInt(row.getAttribute('r')!, 10) >= insertAt + k) || null;
+    for (let i = 0; i < k; i++) {
+      const newNo = insertAt + i;
+      const nr = template.cloneNode(true) as Element;
+      nr.setAttribute('r', String(newNo));
+      for (const c of kids(nr, 'c')) {
+        const [col] = splitRef(c.getAttribute('r')!);
+        c.setAttribute('r', `${col}${newNo}`);
+        const f = child(c, 'f');
+        if (f) {
+          for (const a of ['t', 'ref', 'si']) f.removeAttribute(a);
+          const text = f.textContent || '';
+          if (text) {
+            f.textContent = mapRefs(text, (_c, _ac, ar, r) => (r === templateRowNo && !ar ? newNo : r));
+          }
         }
       }
+      sheetData.insertBefore(nr, anchor);
     }
-    sheetData.insertBefore(nr, anchor);
   }
   // 4. merged cells + dimension
   const mc = child(root, 'mergeCells');
@@ -265,7 +301,7 @@ function insertItemRows(root: Element, templateRowNo: number, insertAt: number, 
 
 /** Totals row: SUM(X<first>:X<anything>) / SUM(X<first>) -> SUM(X<first>:X<last>). */
 function rewriteTotalRanges(rowEl: Element, first: number, last: number) {
-  const re = new RegExp(`^SUM\\(\\$?([A-Z]+)\\$?${first}(?::\\$?([A-Z]+)\\$?\\d+)?\\)$`);
+  const re = new RegExp(`^SUM\\(([A-Z]+)${first}(?::([A-Z]+)\\d+)?\\)$`);
   for (const c of kids(rowEl, 'c')) {
     const f = child(c, 'f');
     const text = f?.textContent || '';
@@ -313,36 +349,27 @@ function fillCostSheet(
   if (totals === null) throw new TemplateError(`"${sheetName}": totals row (SUM in column E) not found.`);
   const existing = totals - first;
   const n = items.length;
-  if (n < existing) {
-    throw new TemplateError(
-      `"${sheetName}" has ${existing} item rows but the quotation has only ${n} items. Spare rows are not handled automatically.`,
-    );
-  }
   const k = n - existing;
   const styles = colStyles(root);
   const tmpl = cellMap(rm.get(first)!);
   const duty = parseFloat(cellText(requireCell(tmpl, 'O', sheetName, first), sst) || '0');
   const vatRaw = cellText(requireCell(tmpl, 'P', sheetName, first), sst);
   const vat = vatRaw === null ? 0.15 : parseFloat(vatRaw);
-  insertItemRows(root, first + existing - 1, totals, k);
+  insertItemRows(root, Math.min(first + existing - 1, first + n - 1), totals, k);
   const last = first + n - 1;
   rm = rowMap(root);
   items.forEach((it, i) => {
     const row = rm.get(first + i)!;
-    const r = first + i;
     setText(getCell(row, 'A', styles), it.reference);
     setText(getCell(row, 'B', styles), it.description);
     setNumber(getCell(row, 'E', styles), it.netPrice);
     setNumber(getCell(row, 'F', styles), it.quantity);
-    setFormula(getCell(row, 'G', styles), `E${r}*F${r}`);
     setNumber(getCell(row, 'I', styles), rate);
     for (const [col, v] of Object.entries(extra)) setNumber(getCell(row, col, styles), v);
     setNumber(getCell(row, 'O', styles), duty);
     setNumber(getCell(row, 'P', styles), vat);
   });
-  const totalsRow = rm.get(totals + k)!;
-  rewriteTotalRanges(totalsRow, first, last);
-  setFormula(getCell(totalsRow, 'G', styles), `SUM(G${first}:G${last})`);
+  rewriteTotalRanges(rm.get(totals + k)!, first, last);
   return { header: hdr, first, last, totalsOld: totals, totalsNew: totals + k, k, existing };
 }
 
@@ -366,9 +393,8 @@ function fillPo(
   if (total === null) throw new TemplateError(`"${poName}": "Total" row not found in column D.`);
   const existing = total - first;
   const n = items.length;
-  if (n < existing) throw new TemplateError(`"${poName}" has ${existing} item rows but there are only ${n} items.`);
   const k = n - existing;
-  insertItemRows(root, first + existing - 1, total, k);
+  insertItemRows(root, Math.min(first + existing - 1, first + n - 1), total, k);
   let rm = rowMap(root);
   const styles = colStyles(root);
   items.forEach((it, i) => {
@@ -421,9 +447,297 @@ function fillPo(
   return { header: hdr, first, last, totalOld: total, totalNew: total + k, k, existing };
 }
 
+// --------------------------------------------------------------- XERO Costing sheet
+function expandSharedFormulas(root: Element) {
+  const masters = new Map<string, { col: number; row: number; text: string }>();
+  for (const row of rowsOf(root)) {
+    const r = parseInt(row.getAttribute('r')!, 10);
+    for (const c of kids(row, 'c')) {
+      const f = child(c, 'f');
+      if (!f || f.getAttribute('t') !== 'shared') continue;
+      const si = f.getAttribute('si') || '';
+      const [colStr] = splitRef(c.getAttribute('r')!);
+      const col = colToN(colStr);
+      const text = (f.textContent || '').trim();
+      if (text) {
+        masters.set(si, { col, row: r, text });
+      } else if (masters.has(si)) {
+        const m = masters.get(si)!;
+        const dRow = r - m.row;
+        const dCol = col - m.col;
+        const shifted = m.text.replace(
+          /((?:'(?:[^']|'')+'|[A-Za-z0-9_.]+)!)?(\$?)([A-Z]{1,3})(\$?)(\d+)(?![A-Za-z0-9_(!])/g,
+          (_all, prefix, ac, cStr, ar, rStr) => {
+            const nc = ac === '$' ? cStr : nToCol(Math.max(1, colToN(cStr) + dCol));
+            const nr = ar === '$' ? parseInt(rStr, 10) : Math.max(1, parseInt(rStr, 10) + dRow);
+            return `${prefix || ''}${ac}${nc}${ar}${nr}`;
+          },
+        );
+        f.textContent = shifted;
+      }
+      for (const a of ['t', 'ref', 'si']) f.removeAttribute(a);
+    }
+  }
+}
+
+export function findXeroHeaderRow(root: Element, sst: string[]): number | null {
+  const byRef = findRowByText(
+    root,
+    sst,
+    'A',
+    (t) => t.trim().toLowerCase() === 'reference' || t.trim().toLowerCase().startsWith('reference'),
+    1,
+    60,
+  );
+  if (byRef !== null) return byRef;
+  return findRowByText(
+    root,
+    sst,
+    'B',
+    (t) => t.trim().toLowerCase() === 'description' || t.trim().toLowerCase().startsWith('description'),
+    1,
+    60,
+  );
+}
+
+export function findXeroTotalsRow(root: Element, sst: string[], first: number): number | null {
+  const rm = rowMap(root);
+  for (const r of [...rm.keys()].sort((a, b) => a - b)) {
+    if (r <= first) continue;
+    const row = rm.get(r)!;
+    const cells = cellMap(row);
+    for (const c of Object.values(cells)) {
+      const f = child(c, 'f');
+      const ft = (f?.textContent || '').trim();
+      if (ft && /^SUM\(\$?[A-Z]+\$?\d+(?::\$?[A-Z]+\$?\d+)?\)$/i.test(ft)) {
+        return r;
+      }
+    }
+    for (const col of ['A', 'B', 'C', 'D']) {
+      const c = cells[col];
+      if (c && !child(c, 'f')) {
+        const txt = (cellText(c, sst) || '').trim();
+        if (/^total\b/i.test(txt)) return r;
+      }
+    }
+  }
+  return null;
+}
+
+function shiftSheetCostRefs(formula: string, costName: string, ol: OrderInfo, itemRowTarget?: number): string {
+  const mapOne = (ref: string) => {
+    const m = /^(\$?)([A-Z]{1,3})(\$?)(\d+)$/.exec(ref);
+    if (!m) return ref;
+    const [, ac, col, ar, rStr] = m;
+    const r = parseInt(rStr, 10);
+    let nr = r;
+    if (r >= ol.totalsOld) {
+      nr = r + ol.k;
+    } else if (itemRowTarget !== undefined && ar !== '$' && r === ol.first) {
+      nr = itemRowTarget;
+    }
+    return `${ac}${col}${ar}${nr}`;
+  };
+  const pat = new RegExp(
+    `(?:'(?:Order list|Quotation_3rd Pty|Others_3rd Pty|${escapeRe(costName)})'|(?:Order_list|Quotation_3rd_Pty|Others_3rd_Pty))!(\\$?[A-Z]{1,3}\\$?\\d+(?::\\$?[A-Z]{1,3}\\$?\\d+)?)`,
+    'gi',
+  );
+  return formula.replace(pat, (_m, rng: string) => {
+    const mapped = rng.split(':').map(mapOne).join(':');
+    return `'${costName}'!${mapped}`;
+  });
+}
+
+/**
+ * Populate the "XERO Costing" sheet from the active cost sheet (Order list, Quotation_3rd Pty, or Others_3rd Pty):
+ *   Column A (Reference)          <- cost sheet Column A (Reference)
+ *   Column B (Description)        <- cost sheet Column B (Description)
+ *   Column C (EX WORKS units (€)) <- cost sheet Column E (Unit Price)
+ *   Column D (Quantity)           <- cost sheet Column F (Quantity)
+ */
+function fillXeroCosting(
+  root: Element,
+  sst: string[],
+  xeroName: string,
+  costName: string,
+  items: QuoteItem[],
+  ol: OrderInfo,
+): XeroInfo {
+  expandSharedFormulas(root);
+  const hdr = findXeroHeaderRow(root, sst);
+  if (hdr === null) throw new TemplateError(`"${xeroName}": header cell "Reference" not found in column A.`);
+  const first = hdr + 1;
+  let rm = rowMap(root);
+  const totals = findXeroTotalsRow(root, sst, first);
+  const n = items.length;
+  const last = first + n - 1;
+
+  const sheetData = child(root, 'sheetData')!;
+  const tmplSource = rm.get(first) ?? [...rm.entries()].find(([r]) => r > hdr && (totals === null || r < totals))?.[1];
+  const tmplRowNo = tmplSource ? parseInt(tmplSource.getAttribute('r')!, 10) : first;
+  const tmplRow = tmplSource ? (tmplSource.cloneNode(true) as Element) : newEl(root.ownerDocument!, 'row');
+  if (!tmplSource) tmplRow.setAttribute('r', String(first));
+
+  const styles = colStyles(root);
+  for (const [col, c] of Object.entries(cellMap(tmplRow))) {
+    const s = c.getAttribute('s');
+    if (s) styles[col] = s;
+  }
+
+  let existing: number;
+  let k: number;
+  let totalsNew: number | null = null;
+
+  if (totals !== null) {
+    existing = totals - first;
+    k = n - existing;
+    totalsNew = totals + k;
+
+    // 1. Remove old item rows [first, totals - 1]
+    for (const row of rowsOf(root)) {
+      const r = parseInt(row.getAttribute('r')!, 10);
+      if (r >= first && r < totals) {
+        sheetData.removeChild(row);
+      }
+    }
+
+    // 2. Shift formulas and row numbers for remaining rows (r < first or r >= totals)
+    for (const row of rowsOf(root)) {
+      const r = parseInt(row.getAttribute('r')!, 10);
+      for (const c of kids(row, 'c')) {
+        const f = child(c, 'f');
+        if (!f) continue;
+        let text = f.textContent || '';
+        if (text) {
+          text = shiftRowsInFormula(text, totals, k);
+          text = shiftSheetCostRefs(text, costName, ol);
+          f.textContent = text;
+        }
+        if (f.getAttribute('ref')) f.setAttribute('ref', shiftRange(f.getAttribute('ref')!, totals, k));
+      }
+      if (r >= totals && k !== 0) {
+        row.setAttribute('r', String(r + k));
+        for (const c of kids(row, 'c')) {
+          const [col] = splitRef(c.getAttribute('r')!);
+          c.setAttribute('r', `${col}${r + k}`);
+        }
+      }
+    }
+
+    // 3. Insert n fresh item rows [first .. last] before totalsNew
+    const anchor = rowsOf(root).find((row) => parseInt(row.getAttribute('r')!, 10) >= totalsNew!) || null;
+    for (let i = 0; i < n; i++) {
+      const newNo = first + i;
+      const src = ol.first + i;
+      const nr = tmplRow.cloneNode(true) as Element;
+      nr.setAttribute('r', String(newNo));
+      for (const c of kids(nr, 'c')) {
+        const [col] = splitRef(c.getAttribute('r')!);
+        c.setAttribute('r', `${col}${newNo}`);
+        const f = child(c, 'f');
+        if (f) {
+          for (const a of ['t', 'ref', 'si']) f.removeAttribute(a);
+          const v = child(c, 'v');
+          if (v) c.removeChild(v);
+          c.removeAttribute('t');
+          let text = f.textContent || '';
+          if (text) {
+            text = mapRefs(text, (_c, _ac, ar, r) => {
+              if (r >= totals) return r + k;
+              if (r === tmplRowNo && !ar) return newNo;
+              return r;
+            });
+            text = shiftSheetCostRefs(text, costName, ol, src);
+            f.textContent = text;
+          }
+        }
+      }
+      setFormula(getCell(nr, 'A', styles), `'${costName}'!A${src}`);
+      setFormula(getCell(nr, 'B', styles), `'${costName}'!B${src}`);
+      setFormula(getCell(nr, 'C', styles), `'${costName}'!E${src}`);
+      setFormula(getCell(nr, 'D', styles), `'${costName}'!F${src}`);
+      sheetData.insertBefore(nr, anchor);
+    }
+
+    rm = rowMap(root);
+    if (rm.has(totalsNew)) {
+      rewriteTotalRanges(rm.get(totalsNew)!, first, last);
+    }
+    const mc = child(root, 'mergeCells');
+    if (mc) {
+      for (const m of kids(mc, 'mergeCell')) {
+        m.setAttribute('ref', shiftRange(m.getAttribute('ref')!, totals, k));
+      }
+    }
+    const dim = child(root, 'dimension');
+    if (dim) dim.setAttribute('ref', shiftRange(dim.getAttribute('ref')!, totals, k));
+  } else {
+    // No totals row: all rows >= first are item rows
+    const oldRows = rowsOf(root).filter((row) => parseInt(row.getAttribute('r')!, 10) >= first);
+    existing = oldRows.length;
+    k = n - existing;
+
+    for (const row of oldRows) {
+      sheetData.removeChild(row);
+    }
+    for (const row of rowsOf(root)) {
+      for (const c of kids(row, 'c')) {
+        const f = child(c, 'f');
+        if (f && f.textContent) {
+          f.textContent = shiftSheetCostRefs(f.textContent, costName, ol);
+        }
+      }
+    }
+
+    for (let i = 0; i < n; i++) {
+      const newNo = first + i;
+      const src = ol.first + i;
+      const nr = tmplRow.cloneNode(true) as Element;
+      nr.setAttribute('r', String(newNo));
+      for (const c of kids(nr, 'c')) {
+        const [col] = splitRef(c.getAttribute('r')!);
+        c.setAttribute('r', `${col}${newNo}`);
+        const f = child(c, 'f');
+        if (f) {
+          for (const a of ['t', 'ref', 'si']) f.removeAttribute(a);
+          const v = child(c, 'v');
+          if (v) c.removeChild(v);
+          c.removeAttribute('t');
+          let text = f.textContent || '';
+          if (text) {
+            text = mapRefs(text, (_c, _ac, ar, r) => (r === tmplRowNo && !ar ? newNo : r));
+            text = shiftSheetCostRefs(text, costName, ol, src);
+            f.textContent = text;
+          }
+        }
+      }
+      setFormula(getCell(nr, 'A', styles), `'${costName}'!A${src}`);
+      setFormula(getCell(nr, 'B', styles), `'${costName}'!B${src}`);
+      setFormula(getCell(nr, 'C', styles), `'${costName}'!E${src}`);
+      setFormula(getCell(nr, 'D', styles), `'${costName}'!F${src}`);
+      sheetData.appendChild(nr);
+    }
+
+    const dim = child(root, 'dimension');
+    if (dim) {
+      const ref = dim.getAttribute('ref') || 'A1:D1';
+      const parts = ref.split(':');
+      if (parts.length === 2) {
+        const [endCol] = splitRef(parts[1].replace(/\$/g, ''));
+        const finalCol = colToN(endCol) < colToN('D') ? 'D' : endCol;
+        dim.setAttribute('ref', `${parts[0]}:${finalCol}${last}`);
+      } else {
+        dim.setAttribute('ref', `${parts[0]}:D${last}`);
+      }
+    }
+  }
+
+  return { header: hdr, first, last, totalsOld: totals, totalsNew, k, existing };
+}
+
 // ------------------------------------------------- comments / VML / workbook parts
 function shiftComments(pkg: Package, sheetPart: string, insertAt: number, k: number): string[] {
-  if (k <= 0) return [];
+  if (k === 0) return [];
   const touched: string[] = [];
   const rels = readRels(pkg, sheetPart);
   const hasComments = Object.values(rels).some(([t]) => t.endsWith('/comments'));
@@ -498,9 +812,6 @@ function editWorkbookParts(pkg: Package, shifts: Record<string, [number, number]
 export function validateOptions(o: FillOptions) {
   if (!o.items.length) throw new TemplateError('The quotation has no items.');
   if (!(o.rate > 0)) throw new TemplateError('The exchange rate must be a positive number.');
-  if (o.mode === 'other' && (o.rate2 === undefined || o.rate2 === null)) {
-    o.rate2 = o.rate;
-  }
   if (MODES[o.mode ?? 'multivac'].secondRateCol && !(o.rate2 && o.rate2 > 0)) {
     throw new TemplateError('The EUR to MUR rate must be a positive number.');
   }
@@ -549,6 +860,18 @@ export function resolvePoSheets(pkg: Package, profile: ModeProfile): SheetInfo[]
   return out;
 }
 
+/** Resolves the "XERO Costing" sheet if present in the workbook. */
+export function resolveXeroSheet(pkg: Package): SheetInfo | null {
+  for (const cand of XERO_CANDIDATES) {
+    try {
+      return findSheet(pkg, cand);
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+}
+
 export interface FinalizeContext {
   pkg: Package;
   sheets: { name: string; root: Element }[];
@@ -570,8 +893,10 @@ export async function fillWorkbook(
   const sst = sharedStrings(pkg);
   const cost = resolveCostSheet(pkg, profile);
   const poSheets = resolvePoSheets(pkg, profile);
+  const xeroSheet = resolveXeroSheet(pkg);
   const costDoc = parseXml(pkg.get(cost.part));
   const poDocs = poSheets.map((p) => parseXml(pkg.get(p.part)));
+  const xeroDoc = xeroSheet ? parseXml(pkg.get(xeroSheet.part)) : null;
   const costRoot = costDoc.documentElement;
 
   const extra: Record<string, number> = profile.secondRateCol ? { [profile.secondRateCol]: opts.rate2! } : {};
@@ -585,6 +910,17 @@ export async function fillWorkbook(
   const commentParts = shiftComments(pkg, cost.part, order.totalsOld, order.k);
   const shifts: Record<string, [number, number]> = { [cost.name]: [order.totalsOld, order.k] };
   for (const p of pos) shifts[p.name] = [p.info.totalOld, p.info.k];
+
+  let xero: XeroSheetResult | undefined;
+  if (xeroSheet && xeroDoc) {
+    const xeroInfo = fillXeroCosting(xeroDoc.documentElement, sst, xeroSheet.name, cost.name, opts.items, order);
+    xero = { name: xeroSheet.name, part: xeroSheet.part, info: xeroInfo };
+    if (xeroInfo.totalsOld !== null) {
+      commentParts.push(...shiftComments(pkg, xeroSheet.part, xeroInfo.totalsOld, xeroInfo.k));
+      shifts[xeroSheet.name] = [xeroInfo.totalsOld, xeroInfo.k];
+    }
+  }
+
   editWorkbookParts(pkg, shifts);
 
   finalize({
@@ -592,13 +928,15 @@ export async function fillWorkbook(
     sheets: [
       { name: cost.name, root: costRoot },
       ...pos.map((p, i) => ({ name: p.name, root: poDocs[i].documentElement })),
+      ...(xero && xeroDoc ? [{ name: xero.name, root: xeroDoc.documentElement }] : []),
     ],
   });
 
   pkg.set(cost.part, dumpXml(costDoc));
   poSheets.forEach((p, i) => pkg.set(p.part, dumpXml(poDocs[i])));
+  if (xero && xeroDoc) pkg.set(xero.part, dumpXml(xeroDoc));
   const bytes = await pkg.save();
-  return { bytes, pkg, mode, costPart: cost.part, costName: cost.name, order, pos, commentParts };
+  return { bytes, pkg, mode, costPart: cost.part, costName: cost.name, order, pos, xero, commentParts };
 }
 
 export { NS_M };
