@@ -63,8 +63,8 @@ export async function verifyWorkbook(inp: VerifyInput): Promise<CheckResult[]> {
   const COST = nOl.name;
   const poNames = resolvePoSheets(orig, profile);
   const nPoNames = resolvePoSheets(out, profile);
-  const oXero = resolveXeroSheet(orig);
-  const nXero = resolveXeroSheet(out);
+  const oXero = resolveXeroSheet(orig, profile);
+  const nXero = resolveXeroSheet(out, profile);
 
   // ------------------------------------------------------------ package integrity
   const sig = (p: Package) => JSON.stringify(sheetParts(p).map((s) => [s.name, s.state, s.part]));

@@ -397,7 +397,7 @@ export default function App() {
                 })}
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Fills: {[MODES[mode].costSheet, ...MODES[mode].poSheets, 'XERO Costing'].join(', ')}. {TYPE_HINT[mode]}
+                Fills: {[MODES[mode].costSheet, ...MODES[mode].poSheets, MODES[mode].xeroSheet].join(', ')}. {TYPE_HINT[mode]}
               </p>
             </div>
 

@@ -44,15 +44,7 @@ import { MODES, ModeProfile, PoMode } from './profiles';
 export const ORDER_SHEET = 'Order list';
 export const PO_SHEET = 'PO Multivac';
 export const XERO_SHEET = 'XERO Costing';
-const XERO_CANDIDATES = [
-  'XERO Costing',
-  'Xero Costing',
-  'XERO_Costing',
-  'Xero_Costing',
-  'XERO-Costing',
-  'Xero-Costing',
-  'XERO',
-];
+export const XERO_ZAR_SHEET = 'XERO Costing ZAR';
 const UNSUPPORTED = [
   'conditionalFormatting', 'dataValidations', 'autoFilter', 'rowBreaks', 'colBreaks',
   'hyperlinks', 'tableParts', 'drawing', 'extLst', 'ignoredErrors',
@@ -860,9 +852,13 @@ export function resolvePoSheets(pkg: Package, profile: ModeProfile): SheetInfo[]
   return out;
 }
 
-/** Resolves the "XERO Costing" sheet if present in the workbook. */
-export function resolveXeroSheet(pkg: Package): SheetInfo | null {
-  for (const cand of XERO_CANDIDATES) {
+/** Resolves the mode's XERO costing sheet ("XERO Costing" or "XERO Costing ZAR") if present in the workbook. */
+export function resolveXeroSheet(pkg: Package, profile: ModeProfile = MODES.multivac): SheetInfo | null {
+  const candidates =
+    profile.xeroSheetCandidates && profile.xeroSheetCandidates.length > 0
+      ? profile.xeroSheetCandidates
+      : [profile.xeroSheet];
+  for (const cand of candidates) {
     try {
       return findSheet(pkg, cand);
     } catch {
@@ -893,7 +889,7 @@ export async function fillWorkbook(
   const sst = sharedStrings(pkg);
   const cost = resolveCostSheet(pkg, profile);
   const poSheets = resolvePoSheets(pkg, profile);
-  const xeroSheet = resolveXeroSheet(pkg);
+  const xeroSheet = resolveXeroSheet(pkg, profile);
   const costDoc = parseXml(pkg.get(cost.part));
   const poDocs = poSheets.map((p) => parseXml(pkg.get(p.part)));
   const xeroDoc = xeroSheet ? parseXml(pkg.get(xeroSheet.part)) : null;

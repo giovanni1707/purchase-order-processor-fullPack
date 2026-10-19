@@ -16,15 +16,61 @@ export interface ModeProfile {
   poOptional?: boolean;
   /** third-party cost sheet also carries a MUR-per-EUR rate (column T) */
   secondRateCol?: string;
+  /** the XERO costing sheet that receives the quotation lines for this supplier type */
+  xeroSheet: string;
+  /** fallback candidates for the XERO costing sheet */
+  xeroSheetCandidates?: string[];
 }
 
 const THIRD_PARTY_COST = 'Quotation_3rd Pty';
 const OTHERS_COST = 'Others_3rd Pty';
+const XERO_EUR_SHEET = 'XERO Costing';
+const XERO_EUR_CANDIDATES = [
+  'XERO Costing',
+  'Xero Costing',
+  'XERO_Costing',
+  'Xero_Costing',
+  'XERO-Costing',
+  'Xero-Costing',
+];
+const XERO_ZAR_SHEET = 'XERO Costing ZAR';
+const XERO_ZAR_CANDIDATES = [
+  'XERO Costing ZAR',
+  'Xero Costing ZAR',
+  'XERO_Costing_ZAR',
+  'Xero_Costing_ZAR',
+  'XERO-Costing-ZAR',
+  'Xero-Costing-ZAR',
+  'XERO Costing (ZAR)',
+];
 
 export const MODES: Record<PoMode, ModeProfile> = {
-  multivac: { id: 'multivac', label: 'Multivac', costSheet: 'Order list', poSheets: ['PO Multivac'] },
-  bizerba: { id: 'bizerba', label: 'Bizerba', costSheet: THIRD_PARTY_COST, poSheets: ['PO Bizerba'], secondRateCol: 'T' },
-  handtmann: { id: 'handtmann', label: 'Handtmann', costSheet: THIRD_PARTY_COST, poSheets: ['PO Handtmann'], secondRateCol: 'T' },
+  multivac: {
+    id: 'multivac',
+    label: 'Multivac',
+    costSheet: 'Order list',
+    poSheets: ['PO Multivac'],
+    xeroSheet: XERO_EUR_SHEET,
+    xeroSheetCandidates: XERO_EUR_CANDIDATES,
+  },
+  bizerba: {
+    id: 'bizerba',
+    label: 'Bizerba',
+    costSheet: THIRD_PARTY_COST,
+    poSheets: ['PO Bizerba'],
+    secondRateCol: 'T',
+    xeroSheet: XERO_ZAR_SHEET,
+    xeroSheetCandidates: XERO_ZAR_CANDIDATES,
+  },
+  handtmann: {
+    id: 'handtmann',
+    label: 'Handtmann',
+    costSheet: THIRD_PARTY_COST,
+    poSheets: ['PO Handtmann'],
+    secondRateCol: 'T',
+    xeroSheet: XERO_ZAR_SHEET,
+    xeroSheetCandidates: XERO_ZAR_CANDIDATES,
+  },
   other: {
     id: 'other',
     label: 'Others',
@@ -36,6 +82,8 @@ export const MODES: Record<PoMode, ModeProfile> = {
     },
     poOptional: true,
     secondRateCol: 'T',
+    xeroSheet: XERO_EUR_SHEET,
+    xeroSheetCandidates: XERO_EUR_CANDIDATES,
   },
 };
 
