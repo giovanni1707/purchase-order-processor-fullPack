@@ -215,10 +215,33 @@ async function pipe(answers: RawExtraction[]) {
   );
   eq('Gemini post-verification enforces Handtmann for MULTIVAC SOUTHERN AFRICA (Pty) Ltd', [geminiHandtmannOverride.supplier, geminiHandtmannOverride.confidence, geminiHandtmannOverride.detectedName], ['handtmann', 'high', 'Handtmann']);
 
-  // All 16 (Selected Tab x Uploaded PDF) combinations verification using exact company details
+  // Verify Gemini fallback post-verification overrides any mistaken 'other' when MULTIVAC Service und Logistik GmbH & Co. KG is present
+  const geminiMultivacOverride = await runSupplierDetection(async () =>
+    JSON.stringify({
+      supplier: 'other',
+      confidence: 'high',
+      detectedName: 'Service und Logistik GmbH & Co. KG',
+      reason: 'Issued by MULTIVAC Service und Logistik GmbH & Co. KG, Gewerbestraße 15, 87787 Wolfertschwenden, DE 364316979, HRA 13980',
+    }),
+  );
+  eq('Gemini post-verification enforces Multivac for MULTIVAC Service und Logistik GmbH & Co. KG', [geminiMultivacOverride.supplier, geminiMultivacOverride.confidence, geminiMultivacOverride.detectedName], ['multivac', 'high', 'Multivac']);
+
+  // Multivac quotation containing customer (Pty) Ltd, bank AG, PDF metadata, and split-line Service und Logistik GmbH & Co. KG must NEVER be classified as 'other'
+  const mWithCustomerAndBank = detectSupplierFromText(
+    'Producer: Adobe Systems Incorporated Linotype GmbH Customer: RCL Foods Consumer (Pty) Ltd Quotation 21400572 Your quote request Pos. 10 Reference Description Quantity List price Net price Invoice amount EUR Service und Logistik GmbH & Co. KG Gewerbestraße 15, 87787 Wolfertschwenden, Germany +49 (0) 8334 601-0 +49 (0) 8334 601-199 muwo@multivac.de www.multivac.com DE 364316979 Amtsgericht Memmingen, HRA 13980 Personally liable partner: Service und Logistik Verwaltungs GmbH Managing directors: Dr. Christian Lau, Dr. Johannes Epple stefan.kirchmann@multivac.de Bank: UniCredit Bank AG Commerzbank AG',
+  );
+  eq('detect Multivac even when customer (Pty) Ltd, bank AG, and PDF metadata are present', [mWithCustomerAndBank.supplier, mWithCustomerAndBank.confidence, mWithCustomerAndBank.detectedName], ['multivac', 'high', 'Multivac']);
+
+  // Multivac quotation from Germany addressed to MULTIVAC SOUTHERN AFRICA (Pty) Ltd as recipient/buyer
+  const mToMultivacSA = detectSupplierFromText(
+    'Recipient: MULTIVAC SOUTHERN AFRICA (Pty) Ltd Quotation 21400572 Pos. 10 List price Net price Invoice amount EUR MULTIVAC Service und Logistik GmbH & Co. KG Gewerbestraße 15, 87787 Wolfertschwenden, Germany +49 (0) 8334 601-0 muwo@multivac.de DE 364316979 Amtsgericht Memmingen, HRA 13980 MULTIVAC Service und Logistik Verwaltungs GmbH Dr. Christian Lau, Dr. Johannes Epple stefan.kirchmann@multivac.de',
+  );
+  eq('detect Multivac when German MULTIVAC Service und Logistik issues quote to Multivac SA', [mToMultivacSA.supplier, mToMultivacSA.confidence, mToMultivacSA.detectedName], ['multivac', 'high', 'Multivac']);
+
+  // All 16 (Selected Tab x Uploaded PDF) combinations verification using exact company details + realistic customer/bank/metadata tokens
   const samplePdfs: Record<'multivac' | 'bizerba' | 'handtmann' | 'other', Uint8Array> = {
     multivac: new TextEncoder().encode(
-      '%PDF-1.4\nstream\n(MULTIVAC Service und Logistik GmbH & Co. KG Gewerbestraße 15, 87787 Wolfertschwenden, Germany +49 (0) 8334 601-0 muwo@multivac.de DE 364316979 Amtsgericht Memmingen, HRA 13980) Tj\nendstream\n%%EOF',
+      '%PDF-1.4\n1 0 obj << /Producer (Adobe Systems Incorporated) >> endobj\nstream\n(Customer: Enterprise Foods (Pty) Ltd Quotation 21400572 Your quote request Pos. 10 List price Net price Invoice amount EUR MULTIVAC Service und Logistik GmbH & Co. KG Gewerbestraße 15, 87787 Wolfertschwenden, Germany +49 (0) 8334 601-0 +49 (0) 8334 601-199 muwo@multivac.de www.multivac.com DE 364316979 Amtsgericht Memmingen, HRA 13980 Personally liable partner: MULTIVAC Service und Logistik Verwaltungs GmbH Managing directors: Dr. Christian Lau, Dr. Johannes Epple stefan.kirchmann@multivac.de UniCredit Bank AG) Tj\nendstream\n%%EOF',
     ),
     bizerba: new TextEncoder().encode(
       '%PDF-1.4\nstream\n(Bizerba SE & Co. KG Wilhelm-Kraut-Straße 65 72336 Balingen www.bizerba.com Item Description Qty Net Price ZAR) Tj\nendstream\n%%EOF',

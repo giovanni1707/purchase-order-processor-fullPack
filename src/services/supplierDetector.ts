@@ -19,27 +19,30 @@ interface BrandMatch {
 }
 
 const MULTIVAC_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> = [
-  { re: /\bMULTIVAC\s+SERVICE\s+UND\s+LOGISTIK\s+GMBH(?:\s*&\s*CO\.?\s*KG)?\b/i, weight: 20, label: 'MULTIVAC Service und Logistik GmbH & Co. KG' },
-  { re: /\bMULTIVAC\s+SERVICE\s+UND\s+LOGISTIK\s+VERWALTUNGS\s+GMBH\b/i, weight: 16, label: 'MULTIVAC Service und Logistik Verwaltungs GmbH' },
-  { re: /\bMULTIVAC\s+SEPP\s+HAGGENM/i, weight: 16, label: 'MULTIVAC Sepp Haggenmüller company name' },
-  { re: /\bSEPP\s+HAGGENM(?:Ü|UE|U)LLER\b/i, weight: 12, label: 'Sepp Haggenmüller company details' },
-  { re: /\bDE\s*364\s*316\s*979\b/i, weight: 20, label: 'MULTIVAC VAT ID DE 364316979' },
-  { re: /\bGEWERBESTR(?:ASSE|AßE|\.)\s*15\b/i, weight: 15, label: 'Gewerbestraße 15 address' },
-  { re: /\b87787\s+WOLFERTSCHWENDEN\b/i, weight: 15, label: '87787 Wolfertschwenden address' },
-  { re: /\bWOLFERTSCHWENDEN\b/i, weight: 10, label: 'Wolfertschwenden headquarters address' },
-  { re: /\+?\s*49\s*(?:\(0\)|0)?\s*8334\s*601\s*[-–]?\s*0\b/, weight: 14, label: 'Telephone +49 (0) 8334 601-0' },
-  { re: /\+?\s*49\s*(?:\(0\)|0)?\s*8334\s*601\s*[-–]?\s*199\b/, weight: 14, label: 'Fax +49 (0) 8334 601-199' },
-  { re: /\bMUWO@MULTIVAC\.DE\b/i, weight: 18, label: 'Email muwo@multivac.de' },
-  { re: /\bSTEFAN\.KIRCHMANN@MULTIVAC\.DE\b/i, weight: 16, label: 'Contact email stefan.kirchmann@multivac.de' },
-  { re: /\b[A-Z0-9._%+-]+@MULTIVAC\.DE\b/i, weight: 10, label: 'multivac.de email' },
-  { re: /\bAMTSGERICHT\s+MEMMINGEN\b/i, weight: 14, label: 'Amtsgericht Memmingen commercial register' },
-  { re: /\bHRA\s*13980\b/i, weight: 15, label: 'Commercial register HRA 13980' },
-  { re: /\bDR\.?\s+CHRISTIAN\s+LAU\b/i, weight: 14, label: 'Managing director Dr. Christian Lau' },
-  { re: /\bDR\.?\s+JOHANNES\s+EPPLE\b/i, weight: 14, label: 'Managing director Dr. Johannes Epple' },
-  { re: /\bYOUR\s+QUOTE\s+REQUEST\b/i, weight: 5, label: 'Multivac quote request header' },
-  { re: /\bPOS\.?\s*10\b[\s\S]{0,800}\bINVOICE\s+AMOUNT\b/i, weight: 8, label: 'Multivac Pos. 10 / Invoice amount layout' },
-  { re: /\bLIST\s+PRICE\b[\s\S]{0,600}\bINVOICE\s+AMOUNT\b/i, weight: 6, label: 'Multivac List price / Invoice amount layout' },
-  { re: /\bWWW\.MULTIVAC\.COM\b/i, weight: 3, label: 'www.multivac.com website' },
+  { re: /MULTIVAC\s*SERVICE\s*UND\s*LOGISTIK\s*GMBH(?:\s*&\s*CO\.?\s*KG)?/i, weight: 25, label: 'MULTIVAC Service und Logistik GmbH & Co. KG' },
+  { re: /\bSERVICE\s+UND\s+LOGISTIK\s+GMBH\s*&\s*CO\.?\s*KG\b/i, weight: 20, label: 'Service und Logistik GmbH & Co. KG' },
+  { re: /MULTIVAC\s*SERVICE\s*UND\s*LOGISTIK\s*VERWALTUNGS\s*GMBH/i, weight: 22, label: 'MULTIVAC Service und Logistik Verwaltungs GmbH' },
+  { re: /\bSERVICE\s+UND\s+LOGISTIK\s+VERWALTUNGS\s+GMBH\b/i, weight: 18, label: 'Service und Logistik Verwaltungs GmbH' },
+  { re: /MULTIVAC\s*SEPP\s*HAGGENM/i, weight: 18, label: 'MULTIVAC Sepp Haggenmüller company name' },
+  { re: /SEPP\s*HAGGENM(?:Ü|UE|U|\S{1,2})LLER/i, weight: 14, label: 'Sepp Haggenmüller company details' },
+  { re: /DE\s*364\s*316\s*979/i, weight: 25, label: 'MULTIVAC VAT ID DE 364316979' },
+  { re: /GEWERBESTR(?:ASSE|AßE|A.{1,3}E|\.)\s*15\b/i, weight: 16, label: 'Gewerbestraße 15 address' },
+  { re: /87787\s*WOLFERTSCHWENDEN/i, weight: 18, label: '87787 Wolfertschwenden address' },
+  { re: /WOLFERTSCHWENDEN/i, weight: 14, label: 'Wolfertschwenden headquarters address' },
+  { re: /\+?\s*49\s*(?:\(\s*0\s*\)|0)?\s*8334\s*601\s*[-–]?\s*0\b/, weight: 16, label: 'Telephone +49 (0) 8334 601-0' },
+  { re: /\+?\s*49\s*(?:\(\s*0\s*\)|0)?\s*8334\s*601\s*[-–]?\s*199\b/, weight: 16, label: 'Fax +49 (0) 8334 601-199' },
+  { re: /\+?\s*49\s*(?:\(\s*0\s*\)|0)?\s*8334\s*601\b/, weight: 12, label: 'Telephone prefix +49 (0) 8334 601' },
+  { re: /MUWO\s*@\s*MULTIVAC\.DE/i, weight: 22, label: 'Email muwo@multivac.de' },
+  { re: /STEFAN\.KIRCHMANN\s*@\s*MULTIVAC\.DE/i, weight: 20, label: 'Contact email stefan.kirchmann@multivac.de' },
+  { re: /[A-Z0-9._%+-]+\s*@\s*MULTIVAC\.DE\b/i, weight: 14, label: 'multivac.de email' },
+  { re: /AMTSGERICHT\s*MEMMINGEN/i, weight: 16, label: 'Amtsgericht Memmingen commercial register' },
+  { re: /\bHRA\s*13980\b/i, weight: 18, label: 'Commercial register HRA 13980' },
+  { re: /DR\.?\s*CHRISTIAN\s*LAU/i, weight: 16, label: 'Managing director Dr. Christian Lau' },
+  { re: /DR\.?\s*JOHANNES\s*EPPLE/i, weight: 16, label: 'Managing director Dr. Johannes Epple' },
+  { re: /\bYOUR\s+QUOTE\s+REQUEST\b/i, weight: 6, label: 'Multivac quote request header' },
+  { re: /\bPOS\.?\s*10\b[\s\S]{0,800}\bINVOICE\s+AMOUNT\b/i, weight: 10, label: 'Multivac Pos. 10 / Invoice amount layout' },
+  { re: /\bLIST\s+PRICE\b[\s\S]{0,600}\bINVOICE\s+AMOUNT\b/i, weight: 10, label: 'Multivac List price / Invoice amount layout' },
+  { re: /WWW\.MULTIVAC\.COM/i, weight: 3, label: 'www.multivac.com website' },
 ];
 
 const BIZERBA_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> = [
@@ -53,13 +56,13 @@ const BIZERBA_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> = [
 
 const HANDTMANN_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> = [
   // Primary Handtmann issuer in Southern Africa: MULTIVAC SOUTHERN AFRICA (Pty) Ltd & its company details
-  { re: /\bMULTIVAC\s+SOUTHERN\s+AFRICA(?:\s*\(PTY\)\s*LTD\.?|\s+PTY\s+LTD\.?)?\b/i, weight: 20, label: 'MULTIVAC SOUTHERN AFRICA (Pty) Ltd' },
+  { re: /MULTIVAC\s*SOUTHERN\s*AFRICA(?:\s*\(PTY\)\s*LTD\.?|\s+PTY\s+LTD\.?)?/i, weight: 20, label: 'MULTIVAC SOUTHERN AFRICA (Pty) Ltd' },
   { re: /\b477\s*021\s*7620\b/, weight: 20, label: 'VAT Registration Number 4770217620' },
-  { re: /\bPOSTNET\s+SUITE\s+514\b/i, weight: 15, label: 'PostNet Suite 514 postal address' },
-  { re: /\bPRIVATE\s+BAG\s+H\s*607\b/i, weight: 15, label: 'Private Bag H607 postal address' },
-  { re: /\bHEIDELBERG\s*,?\s*1438\b/i, weight: 14, label: 'Heidelberg, 1438 postal address' },
-  { re: /(?:\+?\s*27\s*(?:\(0\)|0)?\s*16|\b016)\s*340\s*5800\b/, weight: 15, label: 'Telephone +27 (0) 16 340 5800' },
-  { re: /(?:\+?\s*27\s*(?:\(0\)|0)?\s*16|\b016)\s*340\s*5819\b/, weight: 15, label: 'Fax +27 (0) 16 340 5819' },
+  { re: /POSTNET\s*SUITE\s*514/i, weight: 15, label: 'PostNet Suite 514 postal address' },
+  { re: /PRIVATE\s*BAG\s*H\s*607/i, weight: 15, label: 'Private Bag H607 postal address' },
+  { re: /HEIDELBERG\s*,?\s*1438\b/i, weight: 14, label: 'Heidelberg, 1438 postal address' },
+  { re: /(?:\+?\s*27\s*(?:\(\s*0\s*\)|0)?\s*16|\b016)\s*340\s*5800\b/, weight: 15, label: 'Telephone +27 (0) 16 340 5800' },
+  { re: /(?:\+?\s*27\s*(?:\(\s*0\s*\)|0)?\s*16|\b016)\s*340\s*5819\b/, weight: 15, label: 'Fax +27 (0) 16 340 5819' },
   // Direct Handtmann identifiers
   { re: /\bALBERT\s+HANDTMANN\b/i, weight: 16, label: 'Albert Handtmann company name' },
   { re: /\bHANDTMANN\s+(?:MASCHINENFABRIK|ARMATURENFABRIK|SERVICE|GMBH|INC|SOUTHERN\s+AFRICA|SOUTH\s+AFRICA|\(PTY\)|PTY\s+LTD|LTD|LIMITED|PROCESS|PROCESSING|SOLUTIONS|AG|S\.A)/i, weight: 16, label: 'Handtmann legal entity name' },
@@ -74,12 +77,15 @@ const HANDTMANN_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> =
 const LEGAL_ENTITY_RE =
   /\b([A-Z][A-Za-z0-9&.,' -]{2,60}?\s+(?:GmbH(?:\s*&\s*Co\.?\s*KG)?|\(Pty\)\s*Ltd\.?|Pty\s+Ltd\.?|Ltd\.?|Limited|Inc\.?|Incorporated|Corp\.?|Corporation|S\.A\.?(?:R\.L\.?)?|S\.r\.l\.?|B\.V\.?|N\.V\.?|AG|SE\s*&\s*Co\.?\s*KG|PLC|LLC))\b/g;
 
-const EXPLICIT_SUPPLIER_HEADER_RE = /\b(?:Supplier|Vendor|Issued\s+by|From|Company)\s*:\s*([A-Z][A-Za-z0-9&.,' ()-]{2,60})/i;
+const EXPLICIT_SUPPLIER_HEADER_RE = /\b(?:Supplier|Vendor|Issued\s+by)\s*:\s*([A-Z][A-Za-z0-9&.,' ()-]{2,60})/i;
 
 const QUOTATION_KEYWORDS_RE =
   /\b(?:Quotation|Quote|Offer|Angebot|Devis|Proforma|Estimate|Order\s+Confirmation|Unit\s+Price|Net\s+Price|Quantity|Qty|Description|Reference|Code|Part\s+No|Item\s+No|Total)\b/gi;
 
-const BUYER_IGNORE_RE = /\b(?:Customer|Bill\s+To|Ship\s+To|Sold\s+To|Deliver\s+To)\b/i;
+const BUYER_IGNORE_RE = /\b(?:Customer|Bill\s+To|Ship\s+To|Sold\s+To|Deliver\s+To|Recipient|Buyer)\b/i;
+
+const NON_SUPPLIER_ENTITY_IGNORE_RE =
+  /multivac|bizerba|handtmann|service\s+und\s+logistik|verwaltungs\s+gmbh|haggenm|wolfertschwenden|memmingen|balingen|biberach|heidelberg|adobe|microsoft|linotype|monotype|heidelberger\s+druck|foxit|kofax|canon\b|ricoh\b|xerox\b|hewlett|urw\b|sap\s+(?:se|ag)\b|bank\b|sparkasse|commerzbank|unicredit|landesbank/i;
 
 function scoreBrand(
   text: string,
@@ -102,7 +108,7 @@ function findThirdPartyEntity(text: string): string | null {
   const explicitMatch = EXPLICIT_SUPPLIER_HEADER_RE.exec(text);
   if (explicitMatch?.[1]) {
     const candidate = explicitMatch[1].trim();
-    if (!/multivac|bizerba|handtmann/i.test(candidate)) {
+    if (!NON_SUPPLIER_ENTITY_IGNORE_RE.test(candidate)) {
       return candidate;
     }
   }
@@ -111,9 +117,9 @@ function findThirdPartyEntity(text: string): string | null {
   LEGAL_ENTITY_RE.lastIndex = 0;
   while ((m = LEGAL_ENTITY_RE.exec(text)) !== null) {
     const candidate = m[1].trim();
-    if (/multivac|bizerba|handtmann/i.test(candidate)) continue;
+    if (NON_SUPPLIER_ENTITY_IGNORE_RE.test(candidate)) continue;
     if (BUYER_IGNORE_RE.test(candidate)) continue;
-    if (/^(?:Page|Item|Code|Total|Net\s+Price|Unit\s+Price|Quantity|Description)\b/i.test(candidate)) continue;
+    if (/^(?:Page|Item|Code|Total|Net\s+Price|Unit\s+Price|Quantity|Description|Pos|Document|Date|Currency)\b/i.test(candidate)) continue;
     return candidate;
   }
   return null;
@@ -162,6 +168,7 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
     /\bQty\b/i.test(text) &&
     /\bNet\s+Price\b/i.test(text) &&
     handtmann.score === 0 &&
+    multivac.score < 10 &&
     !thirdPartyName;
 
   if (hasBizerbaColumns) {
@@ -169,16 +176,16 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
     bizerba.signals.push('Bizerba quotation columns (Item, Description, Qty, Net Price)');
   }
 
-  // Priority 1: Explicit Bizerba identification (in case MULTIVAC SOUTHERN AFRICA is the customer on a Bizerba quote)
+  // Priority 1: Explicit Bizerba identification
   const hasExplicitBizerbaBrand = /\bBIZERBA\b/i.test(text) || /\bB\s+I\s+Z\s+E\s+R\s+B\s+A\b/i.test(text);
   const hasExplicitHandtmannBrand =
     /\bHANDTMANN\b/i.test(text) ||
     /\bH\s+A\s+N\s+D\s+T\s+M\s+A\s+N\s+N\b/i.test(text) ||
     /\b477\s*021\s*7620\b/.test(text) ||
-    /\bPOSTNET\s+SUITE\s+514\b/i.test(text) ||
-    /\bPRIVATE\s+BAG\s+H\s*607\b/i.test(text);
+    /POSTNET\s*SUITE\s*514/i.test(text) ||
+    /PRIVATE\s*BAG\s*H\s*607/i.test(text);
 
-  if (hasExplicitBizerbaBrand && !hasExplicitHandtmannBrand && bizerba.score >= 10) {
+  if (hasExplicitBizerbaBrand && !hasExplicitHandtmannBrand && bizerba.score >= 10 && multivac.score < 15) {
     return {
       supplier: 'bizerba',
       confidence: 'high',
@@ -187,7 +194,31 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
     };
   }
 
-  // Priority 2: Handtmann (including MULTIVAC SOUTHERN AFRICA (Pty) Ltd, VAT 4770217620, Heidelberg address, or Handtmann brand/columns)
+  // Priority 2: Explicit German MULTIVAC company identification (MULTIVAC Service und Logistik GmbH & Co. KG, DE 364316979, Wolfertschwenden, HRA 13980, muwo@multivac.de, etc.)
+  // Note: We NEVER block Multivac when thirdPartyName is non-null, because genuine Multivac quotations also contain customer company names or bank names.
+  const hasExplicitGermanMultivac =
+    /MULTIVAC\s*SERVICE\s*UND\s*LOGISTIK/i.test(text) ||
+    /\bSERVICE\s+UND\s+LOGISTIK\s+(?:GMBH|VERWALTUNGS)/i.test(text) ||
+    /DE\s*364\s*316\s*979/i.test(text) ||
+    /\bHRA\s*13980\b/i.test(text) ||
+    /MUWO\s*@\s*MULTIVAC\.DE/i.test(text) ||
+    /STEFAN\.KIRCHMANN\s*@\s*MULTIVAC\.DE/i.test(text) ||
+    /87787\s*WOLFERTSCHWENDEN/i.test(text) ||
+    /GEWERBESTR(?:ASSE|AßE|A.{1,3}E|\.)\s*15\b/i.test(text) ||
+    /AMTSGERICHT\s*MEMMINGEN/i.test(text) ||
+    /DR\.?\s*CHRISTIAN\s*LAU/i.test(text) ||
+    /DR\.?\s*JOHANNES\s*EPPLE/i.test(text);
+
+  if (hasExplicitGermanMultivac && !hasExplicitHandtmannBrand && !hasExplicitBizerbaBrand) {
+    return {
+      supplier: 'multivac',
+      confidence: 'high',
+      detectedName: 'Multivac',
+      reason: `Identified Multivac from company details (${multivac.signals.slice(0, 2).join(', ')}).`,
+    };
+  }
+
+  // Priority 3: Handtmann (MULTIVAC SOUTHERN AFRICA (Pty) Ltd, VAT 4770217620, Heidelberg address, or Handtmann brand/columns)
   if (handtmann.score >= 10 && handtmann.score >= multivac.score) {
     return {
       supplier: 'handtmann',
@@ -197,8 +228,8 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
     };
   }
 
-  // Priority 3: MULTIVAC (MULTIVAC Service und Logistik GmbH & Co. KG, Wolfertschwenden, DE 364316979, HRA 13980, etc.)
-  if (multivac.score >= 10 && handtmann.score < 10 && bizerba.score < 10 && !thirdPartyName) {
+  // Priority 4: MULTIVAC score >= 10 (e.g. Wolfertschwenden, Sepp Haggenmüller, +49 8334 601, Pos. 10 / Invoice amount layout)
+  if (multivac.score >= 10 && multivac.score > handtmann.score && bizerba.score < 10) {
     return {
       supplier: 'multivac',
       confidence: 'high',
@@ -225,7 +256,7 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
     };
   }
 
-  // Priority 3: Clearly identifiable third-party ("Others") quotation
+  // Priority 5: Clearly identifiable third-party ("Others") quotation
   const quoteKeywordMatches = text.match(QUOTATION_KEYWORDS_RE) || [];
   const hasQuoteStructure = quoteKeywordMatches.length >= 2;
 
@@ -248,7 +279,40 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
 
 // ------------------------------------------------ PDF byte stream text extractor
 
-function decodePdfLiteralString(raw: string, cmap?: Map<number, string>): string {
+function applyCMapToBytes(bytes: number[], cmap: Map<number, string>): string {
+  const outParts: string[] = [];
+
+  if (bytes.length >= 2 && bytes.length % 2 === 0) {
+    let cmapOut2 = '';
+    let mapped2 = 0;
+    for (let i = 0; i + 1 < bytes.length; i += 2) {
+      const cid = (bytes[i] << 8) | bytes[i + 1];
+      const mapped = cmap.get(cid);
+      if (mapped) {
+        cmapOut2 += mapped;
+        mapped2++;
+      }
+    }
+    if (mapped2 > 0) outParts.push(cmapOut2);
+  }
+
+  let cmapOut1 = '';
+  let mapped1 = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    const mapped = cmap.get(bytes[i]);
+    if (mapped) {
+      cmapOut1 += mapped;
+      mapped1++;
+    }
+  }
+  if (mapped1 > 0 && mapped1 >= Math.ceil(bytes.length * 0.5)) {
+    outParts.push(cmapOut1);
+  }
+
+  return outParts.join(' ');
+}
+
+function decodePdfLiteralString(raw: string, cmaps?: Array<Map<number, string>>): string {
   const bytes: number[] = [];
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
@@ -279,26 +343,24 @@ function decodePdfLiteralString(raw: string, cmap?: Map<number, string>): string
     }
   }
 
-  if (cmap && cmap.size > 0 && bytes.length >= 2 && bytes.length % 2 === 0) {
-    let cmapOut = '';
-    let mappedCount = 0;
-    for (let i = 0; i + 1 < bytes.length; i += 2) {
-      const cid = (bytes[i] << 8) | bytes[i + 1];
-      const mapped = cmap.get(cid);
-      if (mapped) {
-        cmapOut += mapped;
-        mappedCount++;
+  if (cmaps && cmaps.length > 0 && bytes.length >= 1) {
+    const mappedVariants: string[] = [];
+    for (const cmap of cmaps) {
+      if (cmap.size === 0) continue;
+      const mapped = applyCMapToBytes(bytes, cmap);
+      if (mapped && mapped.length >= asciiOut.replace(/\s+/g, '').length) {
+        mappedVariants.push(mapped);
       }
     }
-    if (mappedCount > 0 && cmapOut.length >= asciiOut.replace(/\s+/g, '').length) {
-      return asciiOut ? `${asciiOut} ${cmapOut}` : cmapOut;
+    if (mappedVariants.length > 0) {
+      return asciiOut ? `${asciiOut} ${mappedVariants.join(' ')}` : mappedVariants.join(' ');
     }
   }
 
   return asciiOut;
 }
 
-function decodePdfHexString(hex: string, cmap?: Map<number, string>): string {
+function decodePdfHexString(hex: string, cmaps?: Array<Map<number, string>>): string {
   const clean = hex.replace(/\s+/g, '');
   if (clean.length < 2) return '';
   if (clean.toUpperCase().startsWith('FEFF')) {
@@ -310,31 +372,26 @@ function decodePdfHexString(hex: string, cmap?: Map<number, string>): string {
     return out;
   }
 
+  const bytes: number[] = [];
   let asciiOut = '';
   for (let i = 0; i + 1 < clean.length; i += 2) {
     const code = parseInt(clean.slice(i, i + 2), 16);
+    bytes.push(code);
     if ((code >= 32 && code <= 126) || (code >= 160 && code <= 255)) {
       asciiOut += String.fromCharCode(code);
     }
   }
 
-  if (cmap && cmap.size > 0) {
-    let cmapOut2 = '';
-    if (clean.length % 4 === 0) {
-      for (let i = 0; i + 3 < clean.length; i += 4) {
-        const cid = parseInt(clean.slice(i, i + 4), 16);
-        const mapped = cmap.get(cid);
-        if (mapped) cmapOut2 += mapped;
-      }
+  if (cmaps && cmaps.length > 0 && bytes.length > 0) {
+    const extras: string[] = [];
+    for (const cmap of cmaps) {
+      if (cmap.size === 0) continue;
+      const mapped = applyCMapToBytes(bytes, cmap);
+      if (mapped) extras.push(mapped);
     }
-    let cmapOut1 = '';
-    for (let i = 0; i + 1 < clean.length; i += 2) {
-      const cid = parseInt(clean.slice(i, i + 2), 16);
-      const mapped = cmap.get(cid);
-      if (mapped) cmapOut1 += mapped;
+    if (extras.length > 0) {
+      return asciiOut ? `${asciiOut} ${extras.join(' ')}` : extras.join(' ');
     }
-    const extra = [cmapOut2, cmapOut1].filter(Boolean).join(' ');
-    if (extra) return asciiOut ? `${asciiOut} ${extra}` : extra;
   }
 
   return asciiOut;
@@ -355,8 +412,10 @@ function decodeHexToUnicode(hex: string): string {
   return out;
 }
 
-function parseToUnicodeCMap(content: string, cmap: Map<number, string>): void {
+function parseToUnicodeCMap(content: string, cmaps: Array<Map<number, string>>): void {
   if (!content.includes('beginbfchar') && !content.includes('beginbfrange')) return;
+
+  const localMap = new Map<number, string>();
 
   const charBlockRe = /beginbfchar([\s\S]*?)endbfchar/g;
   let block: RegExpExecArray | null;
@@ -366,14 +425,29 @@ function parseToUnicodeCMap(content: string, cmap: Map<number, string>): void {
     while ((m = pairRe.exec(block[1])) !== null) {
       const src = parseInt(m[1], 16);
       const dst = decodeHexToUnicode(m[2]);
-      if (Number.isFinite(src) && dst) cmap.set(src, dst);
+      if (Number.isFinite(src) && dst) localMap.set(src, dst);
     }
   }
 
   const rangeBlockRe = /beginbfrange([\s\S]*?)endbfrange/g;
   while ((block = rangeBlockRe.exec(content)) !== null) {
-    const rangeRe = /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g;
+    // 1. Array form: <start> <end> [<dst1> <dst2> ...]
+    const arrayRangeRe = /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*\[([^\]]+)\]/g;
     let m: RegExpExecArray | null;
+    while ((m = arrayRangeRe.exec(block[1])) !== null) {
+      const start = parseInt(m[1], 16);
+      const end = parseInt(m[2], 16);
+      const hexItems = m[3].match(/<([0-9A-Fa-f]+)>/g) || [];
+      if (Number.isFinite(start) && Number.isFinite(end) && end >= start && end - start <= 512) {
+        for (let idx = 0; idx < hexItems.length && start + idx <= end; idx++) {
+          const dst = decodeHexToUnicode(hexItems[idx].slice(1, -1));
+          if (dst) localMap.set(start + idx, dst);
+        }
+      }
+    }
+
+    // 2. Sequential form: <start> <end> <base>
+    const rangeRe = /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g;
     while ((m = rangeRe.exec(block[1])) !== null) {
       const start = parseInt(m[1], 16);
       const end = parseInt(m[2], 16);
@@ -381,14 +455,18 @@ function parseToUnicodeCMap(content: string, cmap: Map<number, string>): void {
       if (Number.isFinite(start) && Number.isFinite(end) && Number.isFinite(baseCode) && end >= start && end - start <= 512) {
         for (let cid = start; cid <= end; cid++) {
           const cp = baseCode + (cid - start);
-          if (cp > 0 && cp <= 0x10ffff) cmap.set(cid, String.fromCodePoint(cp));
+          if (cp > 0 && cp <= 0x10ffff) localMap.set(cid, String.fromCodePoint(cp));
         }
       }
     }
   }
+
+  if (localMap.size > 0) {
+    cmaps.push(localMap);
+  }
 }
 
-function extractLiteralStringsWithBalancedParens(content: string, cmap?: Map<number, string>): string[] {
+function extractLiteralStringsWithBalancedParens(content: string, cmaps?: Array<Map<number, string>>): string[] {
   const results: string[] = [];
   let i = 0;
   const n = content.length;
@@ -412,14 +490,14 @@ function extractLiteralStringsWithBalancedParens(content: string, cmap?: Map<num
     }
     if (depth === 0) {
       const inner = content.slice(start, i - 1);
-      const decoded = decodePdfLiteralString(inner, cmap);
+      const decoded = decodePdfLiteralString(inner, cmaps);
       if (decoded.length >= 1) results.push(decoded);
     }
   }
   return results;
 }
 
-function extractStringsFromStreamContent(content: string, cmap?: Map<number, string>): string {
+function extractStringsFromStreamContent(content: string, cmaps?: Array<Map<number, string>>): string {
   const chunks: string[] = [];
 
   // 1. Reconstruct words across kerning arrays: [(H) -15 (andtmann)] TJ or [<0048> -10 <0061...>] TJ
@@ -444,11 +522,11 @@ function extractStringsFromStreamContent(content: string, cmap?: Map<number, str
           else if (inner[idx] === ')') depth--;
           idx++;
         }
-        line += decodePdfLiteralString(inner.slice(start, Math.max(start, idx - 1)), cmap);
+        line += decodePdfLiteralString(inner.slice(start, Math.max(start, idx - 1)), cmaps);
       } else if (ch === '<') {
         const end = inner.indexOf('>', idx + 1);
         if (end === -1) break;
-        line += decodePdfHexString(inner.slice(idx + 1, end), cmap);
+        line += decodePdfHexString(inner.slice(idx + 1, end), cmaps);
         idx = end + 1;
       } else if (ch === '-' || (ch >= '0' && ch <= '9')) {
         const numMatch = /^-?\d+(?:\.\d+)?/.exec(inner.slice(idx));
@@ -468,7 +546,7 @@ function extractStringsFromStreamContent(content: string, cmap?: Map<number, str
   }
 
   // 2. Literal strings (...) with full support for nested balanced parentheses like "(Company (Pty) Ltd)"
-  const litTokens = extractLiteralStringsWithBalancedParens(content, cmap);
+  const litTokens = extractLiteralStringsWithBalancedParens(content, cmaps);
   if (litTokens.length > 0) {
     chunks.push(litTokens.join(''));
     chunks.push(litTokens.join(' '));
@@ -478,7 +556,7 @@ function extractStringsFromStreamContent(content: string, cmap?: Map<number, str
   const hexRe = /<([0-9A-Fa-f\s]{2,})>/g;
   const hexTokens: string[] = [];
   while ((m = hexRe.exec(content)) !== null) {
-    const decoded = decodePdfHexString(m[1], cmap).trim();
+    const decoded = decodePdfHexString(m[1], cmaps).trim();
     if (decoded.length >= 1) hexTokens.push(decoded);
   }
   if (hexTokens.length > 0) {
@@ -530,16 +608,16 @@ async function tryInflate(data: Uint8Array): Promise<string | null> {
 export async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
   const rawLatin1 = new TextDecoder('latin1').decode(bytes);
   const parts: string[] = [];
-  const cmap = new Map<number, string>();
+  const cmaps: Array<Map<number, string>> = [];
 
-  parseToUnicodeCMap(rawLatin1, cmap);
+  parseToUnicodeCMap(rawLatin1, cmaps);
 
-  // Decompress up to 80 FlateDecode streams; first pass collects ToUnicode CMaps, second extracts text
+  // Decompress up to 200 FlateDecode streams; first pass collects ToUnicode CMaps, second extracts text
   const inflatedStreams: string[] = [];
-  const streamRe = /stream(?:\r\n|\r|\n)([\s\S]*?)(?:\r\n|\r|\n)?endstream/g;
+  const streamRe = /stream[ \t]*(?:\r\n|\r|\n)([\s\S]*?)(?:\r\n|\r|\n)?endstream/g;
   let match: RegExpExecArray | null;
   let count = 0;
-  while ((match = streamRe.exec(rawLatin1)) !== null && count < 80) {
+  while ((match = streamRe.exec(rawLatin1)) !== null && count < 200) {
     const body = match[1];
     if (body.length < 4 || body.length > 750_000) continue;
     count++;
@@ -547,13 +625,13 @@ export async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string
     for (let i = 0; i < body.length; i++) streamBytes[i] = body.charCodeAt(i) & 0xff;
     const inflated = await tryInflate(streamBytes);
     if (inflated) {
-      parseToUnicodeCMap(inflated, cmap);
+      parseToUnicodeCMap(inflated, cmaps);
       inflatedStreams.push(inflated);
     }
   }
 
   // Extract strings from uncompressed PDF content
-  parts.push(extractStringsFromStreamContent(rawLatin1, cmap));
+  parts.push(extractStringsFromStreamContent(rawLatin1, cmaps));
 
   // Also capture plain readable ASCII text when a test/simple PDF stores plain text directly
   const plainText = rawLatin1
@@ -564,7 +642,7 @@ export async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string
   if (plainText) parts.push(plainText);
 
   for (const inflated of inflatedStreams) {
-    const extracted = extractStringsFromStreamContent(inflated, cmap);
+    const extracted = extractStringsFromStreamContent(inflated, cmaps);
     if (extracted) parts.push(extracted);
   }
 

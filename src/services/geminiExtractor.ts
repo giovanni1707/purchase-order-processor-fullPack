@@ -314,39 +314,41 @@ const SUPPLIER_DETECTION_SCHEMA = {
 };
 
 export const SUPPLIER_DETECTION_PROMPT = `You are a specialist document classifier for a Purchase Order application.
-Inspect the attached quotation PDF (including company name, VAT registration number, postal/street address, telephone/fax numbers, email, commercial register, managing directors, logo, and table layout) to classify the quotation into one of four supplier categories: "handtmann", "multivac", "bizerba", or "other" (or "uncertain").
+Inspect the attached quotation PDF (including company name, VAT registration number, postal/street address, telephone/fax numbers, email, commercial register, managing directors, logo, and table layout) to classify the quotation into one of four supplier categories: "multivac", "handtmann", "bizerba", or "other" (or "uncertain").
 
-CRITICAL RULE — DISTINGUISHING HANDTMANN FROM MULTIVAC:
-Both Handtmann and Multivac quotations can contain the word "MULTIVAC" in their company details. You MUST NOT classify a document as "multivac" based only on the presence of the word "MULTIVAC". Always check the specific company identity, VAT registration number, and address below:
+CRITICAL RULE — DISTINGUISHING MULTIVAC FROM HANDTMANN AND OTHERS:
+Both Handtmann and Multivac quotations can contain the word "MULTIVAC" in their company details. Distinguish them using the specific company details below, and NEVER classify a genuine Multivac or Handtmann quotation as "other":
 
-1. "handtmann" (HANDTMANN Category — Issued by MULTIVAC SOUTHERN AFRICA (Pty) Ltd or Handtmann):
-   Classify as supplier: "handtmann", confidence: "high", detectedName: "Handtmann" when the document matches ANY of these Handtmann company identifiers:
+1. "multivac" (MULTIVAC Category — Issued by MULTIVAC Service und Logistik GmbH & Co. KG in Germany):
+   Classify as supplier: "multivac", confidence: "high", detectedName: "Multivac" when the document contains ANY of these German Multivac identifiers:
+   - Company name: MULTIVAC Service und Logistik GmbH & Co. KG (or MULTIVAC Sepp Haggenmüller SE & Co. KG)
+   - Personally liable partner: MULTIVAC Service und Logistik Verwaltungs GmbH
+   - Address: Gewerbestraße 15, 87787 Wolfertschwenden, Germany
+   - Telephone: +49 (0) 8334 601-0
+   - Fax: +49 (0) 8334 601-199
+   - Email: muwo@multivac.de or stefan.kirchmann@multivac.de (or any @multivac.de email)
+   - Website: www.multivac.com (when accompanied by German Wolfertschwenden / MULTIVAC Service und Logistik details)
+   - VAT ID: DE 364316979
+   - Commercial register: Amtsgericht Memmingen, HRA 13980
+   - Managing directors: Dr. Christian Lau, Dr. Johannes Epple
+   - Standard Multivac quotation table layout (Pos. 10, 20..., List price, Net price, Invoice amount, Your quote request)
+   IMPORTANT: Do NOT confuse the customer/recipient address on a Multivac quotation with the issuing supplier. Even if a customer company name appears in the recipient block, if the issuing company is MULTIVAC Service und Logistik GmbH & Co. KG (Wolfertschwenden, Germany), you MUST classify it as "multivac", NEVER "other".
+
+2. "handtmann" (HANDTMANN Category — Issued by MULTIVAC SOUTHERN AFRICA (Pty) Ltd or Handtmann):
+   Classify as supplier: "handtmann", confidence: "high", detectedName: "Handtmann" when the document is issued by MULTIVAC SOUTHERN AFRICA (Pty) Ltd or matches ANY of these Handtmann identifiers:
    - Company name: MULTIVAC SOUTHERN AFRICA (Pty) Ltd
    - VAT Registration Number: 4770217620
    - Postal address: PostNet Suite 514, Private Bag H607, Heidelberg, 1438
    - Telephone: +27 (0) 16 340 5800
    - Fax: +27 (0) 16 340 5819
    - OR direct Handtmann identifiers (Albert Handtmann, Handtmann Maschinenfabrik, Biberach, handtmann.de, HANDTMANN, or Handtmann table columns: Code, Description, Quantity, Net Price).
-   IMPORTANT: Whenever the issuing company is MULTIVAC SOUTHERN AFRICA (Pty) Ltd or VAT Registration Number 4770217620 is present, the document MUST be classified as "handtmann", NEVER "multivac".
-
-2. "multivac" (MULTIVAC Category — Issued by MULTIVAC Service und Logistik GmbH & Co. KG in Germany):
-   Classify as supplier: "multivac", confidence: "high", detectedName: "Multivac" when the document matches these German Multivac company identifiers:
-   - Company name: MULTIVAC Service und Logistik GmbH & Co. KG (or MULTIVAC Sepp Haggenmüller SE & Co. KG)
-   - Address: Gewerbestraße 15, 87787 Wolfertschwenden, Germany
-   - Telephone: +49 (0) 8334 601-0
-   - Fax: +49 (0) 8334 601-199
-   - Email: muwo@multivac.de or stefan.kirchmann@multivac.de
-   - Website: www.multivac.com (when accompanied by the German Wolfertschwenden / MULTIVAC Service und Logistik details)
-   - VAT ID: DE 364316979
-   - Commercial register: Amtsgericht Memmingen, HRA 13980
-   - Personally liable partner: MULTIVAC Service und Logistik Verwaltungs GmbH
-   - Managing directors: Dr. Christian Lau, Dr. Johannes Epple
+   IMPORTANT: Whenever the issuing company is MULTIVAC SOUTHERN AFRICA (Pty) Ltd or VAT Registration Number 4770217620 is present (and it is not issued by MULTIVAC Service und Logistik GmbH & Co. KG in Germany), the document MUST be classified as "handtmann", NEVER "multivac" or "other".
 
 3. "bizerba" (BIZERBA Category):
    Classify as supplier: "bizerba", confidence: "high", detectedName: "Bizerba" when the document is issued by BIZERBA (e.g., Bizerba SE & Co. KG, Bizerba Southern Africa (Pty) Ltd, Balingen, Wilhelm-Kraut-Straße, bizerba.com, bizerba.co.za).
 
 4. "other" (Others Category):
-   Classify as supplier: "other", confidence: "high", detectedName: "<Actual Issuing Company Name>" when the quotation is issued by any other clearly identifiable supplier company that is NOT MULTIVAC Service und Logistik GmbH & Co. KG, NOT MULTIVAC SOUTHERN AFRICA (Pty) Ltd / Handtmann, and NOT Bizerba.
+   Classify as supplier: "other", confidence: "high", detectedName: "<Actual Issuing Company Name>" ONLY when the quotation is issued by a third-party supplier company that is NOT MULTIVAC Service und Logistik GmbH & Co. KG, NOT MULTIVAC SOUTHERN AFRICA (Pty) Ltd, NOT Handtmann, and NOT Bizerba. Never return the buyer/customer name as the supplier.
 
 5. "uncertain":
    If the document does not contain sufficient identifying information to determine the supplier confidently, return supplier: "uncertain" and confidence: "low". Never guess.`;
@@ -362,28 +364,49 @@ export async function runSupplierDetection(generate: Generate): Promise<Supplier
   let detectedName = typeof parsed?.detectedName === 'string' && parsed.detectedName.trim() ? parsed.detectedName.trim() : null;
   const reason = typeof parsed?.reason === 'string' && parsed.reason.trim() ? parsed.reason.trim() : 'Analyzed PDF document content.';
 
-  // Deterministic safeguard: if the model's detectedName or reason cites MULTIVAC SOUTHERN AFRICA (Pty) Ltd
-  // or its VAT/address/phone identifiers, always classify as Handtmann.
   const combinedEvidence = `${detectedName ?? ''} ${reason}`;
-  if (
-    /\bMULTIVAC\s+SOUTHERN\s+AFRICA\b/i.test(combinedEvidence) ||
-    /\b477\s*021\s*7620\b/.test(combinedEvidence) ||
-    /\bPOSTNET\s+SUITE\s+514\b/i.test(combinedEvidence) ||
-    /\bPRIVATE\s+BAG\s+H\s*607\b/i.test(combinedEvidence) ||
-    /\bHEIDELBERG\s*,?\s*1438\b/i.test(combinedEvidence) ||
-    /(?:\+?\s*27\s*(?:\(0\)|0)?\s*16|\b016)\s*340\s*58(?:00|19)\b/.test(combinedEvidence)
-  ) {
-    supplier = 'handtmann';
-    detectedName = 'Handtmann';
-  } else if (
-    /\bMULTIVAC\s+SERVICE\s+UND\s+LOGISTIK\b/i.test(combinedEvidence) ||
-    /\bDE\s*364\s*316\s*979\b/i.test(combinedEvidence) ||
+  const hasGermanMultivacEvidence =
+    /MULTIVAC\s*SERVICE\s*UND\s*LOGISTIK/i.test(combinedEvidence) ||
+    /\bSERVICE\s+UND\s+LOGISTIK\s+(?:GMBH|VERWALTUNGS)/i.test(combinedEvidence) ||
+    /DE\s*364\s*316\s*979/i.test(combinedEvidence) ||
     /\bHRA\s*13980\b/i.test(combinedEvidence) ||
-    /\bMUWO@MULTIVAC\.DE\b/i.test(combinedEvidence) ||
-    /\bSTEFAN\.KIRCHMANN@MULTIVAC\.DE\b/i.test(combinedEvidence)
-  ) {
+    /MUWO\s*@\s*MULTIVAC\.DE/i.test(combinedEvidence) ||
+    /STEFAN\.KIRCHMANN\s*@\s*MULTIVAC\.DE/i.test(combinedEvidence) ||
+    /87787\s*WOLFERTSCHWENDEN/i.test(combinedEvidence) ||
+    /\bWOLFERTSCHWENDEN\b/i.test(combinedEvidence) ||
+    /GEWERBESTR(?:ASSE|AßE|A.{1,3}E|\.)\s*15\b/i.test(combinedEvidence) ||
+    /AMTSGERICHT\s*MEMMINGEN/i.test(combinedEvidence) ||
+    /DR\.?\s*CHRISTIAN\s*LAU/i.test(combinedEvidence) ||
+    /DR\.?\s*JOHANNES\s*EPPLE/i.test(combinedEvidence) ||
+    /\+?\s*49\s*(?:\(\s*0\s*\)|0)?\s*8334\s*601\b/.test(combinedEvidence) ||
+    /SEPP\s*HAGGENM/i.test(combinedEvidence);
+
+  const hasSouthAfricanHandtmannEvidence =
+    /MULTIVAC\s*SOUTHERN\s*AFRICA/i.test(combinedEvidence) ||
+    /\b477\s*021\s*7620\b/.test(combinedEvidence) ||
+    /POSTNET\s*SUITE\s*514/i.test(combinedEvidence) ||
+    /PRIVATE\s*BAG\s*H\s*607/i.test(combinedEvidence) ||
+    /HEIDELBERG\s*,?\s*1438\b/i.test(combinedEvidence) ||
+    /(?:\+?\s*27\s*(?:\(\s*0\s*\)|0)?\s*16|\b016)\s*340\s*58(?:00|19)\b/.test(combinedEvidence);
+
+  if (hasGermanMultivacEvidence) {
     supplier = 'multivac';
     detectedName = 'Multivac';
+  } else if (hasSouthAfricanHandtmannEvidence) {
+    supplier = 'handtmann';
+    detectedName = 'Handtmann';
+  } else if (supplier === 'other' && detectedName) {
+    // Safeguard: if the model classified the document as 'other' but the detected supplier name itself is Multivac, Handtmann, or Bizerba
+    if (/bizerba/i.test(detectedName)) {
+      supplier = 'bizerba';
+      detectedName = 'Bizerba';
+    } else if (/handtmann/i.test(detectedName)) {
+      supplier = 'handtmann';
+      detectedName = 'Handtmann';
+    } else if (/multivac/i.test(detectedName)) {
+      supplier = 'multivac';
+      detectedName = 'Multivac';
+    }
   }
 
   const confidence: 'high' | 'medium' | 'low' =
@@ -394,7 +417,7 @@ export async function runSupplierDetection(generate: Generate): Promise<Supplier
         : 'high';
   return {
     supplier,
-    confidence: supplier === 'handtmann' || supplier === 'multivac' ? 'high' : confidence,
+    confidence: supplier === 'handtmann' || supplier === 'multivac' || supplier === 'bizerba' ? 'high' : confidence,
     detectedName,
     reason,
   };

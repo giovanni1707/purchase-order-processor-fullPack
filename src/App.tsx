@@ -193,7 +193,10 @@ export default function App() {
   async function detectSupplierForFile(file: File): Promise<SupplierDetectionResult> {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const local = await detectSupplierFromPdfBytes(bytes);
-    if (local.supplier !== 'uncertain' && local.confidence === 'high') {
+    if (
+      (local.supplier === 'multivac' || local.supplier === 'bizerba' || local.supplier === 'handtmann') &&
+      local.confidence === 'high'
+    ) {
       return local;
     }
     try {
@@ -206,7 +209,10 @@ export default function App() {
       if (resp.ok) {
         const data = await resp.json();
         if (data?.success && data?.detection && typeof data.detection.supplier === 'string') {
-          return data.detection as SupplierDetectionResult;
+          const remote = data.detection as SupplierDetectionResult;
+          if (remote.supplier !== 'uncertain' && remote.confidence !== 'low') {
+            return remote;
+          }
         }
       }
     } catch {
