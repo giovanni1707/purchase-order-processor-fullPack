@@ -311,10 +311,10 @@ export default function App() {
       ...(built2.xero ? [built2.xero.name] : []),
     ];
     if (c.mode === 'multivac') {
-      notices.push('Order list columns A, B, E, F, I now hold typed values instead of links to Quotation_Multivac.');
+      notices.push(`${built2.costName} columns A, B, E, F, I now hold typed values instead of links to Quotation_Multivac.`);
       if (built2.xero) notices.push(`${built2.xero.name} columns A, B, C, D are populated from ${built2.costName} columns A, B, E, F.`);
       notices.push('The PO number and date at the top of PO Multivac come from the Template sheet and still show placeholders until you fill Template.');
-      notices.push('Footer dates on PO Multivac and the rate-header date in Order list are fixed text and were left unchanged.');
+      notices.push(`Footer dates on PO Multivac and the rate-header date in ${built2.costName} are fixed text and were left unchanged.`);
     } else if (c.mode === 'other') {
       notices.push(`${built2.costName}: column I holds the EUR to MUR rate (${c.rate}) you entered.`);
       notices.push(`Only ${filledSheets.join(', ')} was filled; the other PO sheets are unchanged.`);

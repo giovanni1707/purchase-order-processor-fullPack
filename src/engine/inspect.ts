@@ -62,7 +62,7 @@ export async function inspectWorkbook(buf: ArrayBuffer | Uint8Array): Promise<Wo
   res.ok = MODE_IDS.some((m) => res.modes[m]);
   if (!res.ok) {
     res.error =
-      `This is not the Template_Purchase_Order workbook (sheets found: ${res.sheetNames.join(', ') || 'none'}). It needs 'Order list' + 'PO Multivac', 'Quotation_3rd Pty' + 'PO Bizerba' / 'PO Handtmann', or 'Others_3rd Pty' + 'PO Others'.`;
+      `This is not the Template_Purchase_Order workbook (sheets found: ${res.sheetNames.join(', ') || 'none'}). It needs 'Quotation_MUWO' + 'PO Multivac', 'Quotation_3rd Pty(BIZ, HAN)' + 'PO Bizerba' / 'PO Handtmann', or 'Quotation_3rd Pty' + 'PO Others'.`;
   }
   return res;
 }

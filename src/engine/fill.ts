@@ -41,7 +41,7 @@ import {
 } from './ooxml';
 import { MODES, ModeProfile, PoMode } from './profiles';
 
-export const ORDER_SHEET = 'Order list';
+export const ORDER_SHEET = 'Quotation_MUWO';
 export const PO_SHEET = 'PO Multivac';
 export const XERO_SHEET = 'XERO Costing';
 export const XERO_ZAR_SHEET = 'XERO Costing ZAR';
@@ -531,7 +531,7 @@ function shiftSheetCostRefs(formula: string, costName: string, ol: OrderInfo, it
     return `${ac}${col}${ar}${nr}`;
   };
   const pat = new RegExp(
-    `(?:'(?:Order list|Quotation_3rd Pty|Others_3rd Pty|${escapeRe(costName)})'|(?:Order_list|Quotation_3rd_Pty|Others_3rd_Pty))!(\\$?[A-Z]{1,3}\\$?\\d+(?::\\$?[A-Z]{1,3}\\$?\\d+)?)`,
+    `(?:'(?:Quotation_MUWO|Quotation_3rd Pty\\s*\\(BIZ,\\s*HAN\\)|Quotation_3rd Pty|Order list|Others_3rd Pty|${escapeRe(costName)})'|(?:Quotation_MUWO|Order_list|Quotation_3rd_Pty|Others_3rd_Pty|${escapeRe(costName)}))!(\\$?[A-Z]{1,3}\\$?\\d+(?::\\$?[A-Z]{1,3}\\$?\\d+)?)`,
     'gi',
   );
   return formula.replace(pat, (_m, rng: string) => {
@@ -777,7 +777,7 @@ function editWorkbookParts(pkg: Package, shifts: Record<string, [number, number]
   wb = wb.replace(/(<definedName\b[^>]*>)([\s\S]*?)(<\/definedName>)/g, (_m, head, text, tail) => {
     for (const [name, [insertAt, k]] of Object.entries(shifts)) {
       const pat = new RegExp(
-        `((?:'|&apos;)${escapeRe(name)}(?:'|&apos;)!)(\\$?[A-Z]+\\$?\\d+(?::\\$?[A-Z]+\\$?\\d+)?)`,
+        `((?:(?:'|&apos;)${escapeRe(name)}(?:'|&apos;)|(?<![A-Za-z0-9_';])${escapeRe(name)})!)(\\$?[A-Z]+\\$?\\d+(?::\\$?[A-Z]+\\$?\\d+)?)`,
         'g',
       );
       text = text.replace(pat, (_mm: string, a: string, b: string) => a + shiftRange(b, insertAt, k));

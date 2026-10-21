@@ -401,7 +401,7 @@ export async function verifyWorkbook(inp: VerifyInput): Promise<CheckResult[]> {
     const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const shift = (s: string, name: string, at: number, kk: number) =>
       s.replace(
-        new RegExp(`((?:'|&apos;)${esc(name)}(?:'|&apos;)!)(\\$?[A-Z]+\\$?\\d+(?::\\$?[A-Z]+\\$?\\d+)?)`, 'g'),
+        new RegExp(`((?:(?:'|&apos;)${esc(name)}(?:'|&apos;)|(?<![A-Za-z0-9_';])${esc(name)})!)(\\$?[A-Z]+\\$?\\d+(?::\\$?[A-Z]+\\$?\\d+)?)`, 'g'),
         (_m, a, b) => a + shiftRange(b, at, kk),
       );
     const expected = o.map((s0) => {

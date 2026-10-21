@@ -92,10 +92,10 @@ export function calcValue(calc: BuiltCalc, sheetName: string, coord: string, for
   const [col, r] = splitRef(coord);
   const v = calc.hf.getCellValue({ sheet: calc.ids[sheetName], row: r - 1, col: colToN(col) - 1 }) as unknown;
   // a plain reference to a text cell keeps its text (HyperFormula would read "0012" as the number 12)
-  const direct = /^(?:'((?:[^']|'')+)'!)?\$?([A-Z]+)\$?(\d+)$/.exec(formula);
+  const direct = /^(?:(?:'((?:[^']|'')+)'|([A-Za-z0-9_.]+))!)?\$?([A-Z]+)\$?(\d+)$/.exec(formula);
   if (direct) {
-    const src = (direct[1] ?? sheetName).replace(/''/g, "'");
-    const txt = calc.texts.get(`${src}!${direct[2]}${direct[3]}`);
+    const src = (direct[1] ?? direct[2] ?? sheetName).replace(/''/g, "'");
+    const txt = calc.texts.get(`${src}!${direct[3]}${direct[4]}`);
     if (txt !== undefined) return txt;
   }
   if (v === null || v === undefined) return null;

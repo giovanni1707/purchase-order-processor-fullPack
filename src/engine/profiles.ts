@@ -22,8 +22,31 @@ export interface ModeProfile {
   xeroSheetCandidates?: string[];
 }
 
-const THIRD_PARTY_COST = 'Quotation_3rd Pty';
-const OTHERS_COST = 'Others_3rd Pty';
+const MUWO_COST = 'Quotation_MUWO';
+const MUWO_CANDIDATES = [
+  'Quotation_MUWO',
+  'Quotation-MUWO',
+  'Quotation MUWO',
+  'Order list',
+  'Order List',
+];
+const THIRD_PARTY_COST = 'Quotation_3rd Pty(BIZ, HAN)';
+const THIRD_PARTY_CANDIDATES = [
+  'Quotation_3rd Pty(BIZ, HAN)',
+  'Quotation_3rd Pty (BIZ, HAN)',
+  'Quotation_3rd Pty(BIZ,HAN)',
+  'Quotation-3rd Pty(BIZ, HAN)',
+  'Quotation_3rd Pty',
+];
+const OTHERS_COST = 'Quotation_3rd Pty';
+const OTHERS_CANDIDATES = [
+  'Quotation_3rd Pty',
+  'Quotation-3rd pty',
+  'Others_3rd Pty',
+  'Others-3rd pty',
+  'Others',
+  'Other_3rd Pty',
+];
 const XERO_EUR_SHEET = 'XERO Costing';
 const XERO_EUR_CANDIDATES = [
   'XERO Costing',
@@ -48,7 +71,8 @@ export const MODES: Record<PoMode, ModeProfile> = {
   multivac: {
     id: 'multivac',
     label: 'Multivac',
-    costSheet: 'Order list',
+    costSheet: MUWO_COST,
+    costSheetCandidates: MUWO_CANDIDATES,
     poSheets: ['PO Multivac'],
     xeroSheet: XERO_EUR_SHEET,
     xeroSheetCandidates: XERO_EUR_CANDIDATES,
@@ -57,6 +81,7 @@ export const MODES: Record<PoMode, ModeProfile> = {
     id: 'bizerba',
     label: 'Bizerba',
     costSheet: THIRD_PARTY_COST,
+    costSheetCandidates: THIRD_PARTY_CANDIDATES,
     poSheets: ['PO Bizerba'],
     secondRateCol: 'T',
     xeroSheet: XERO_ZAR_SHEET,
@@ -66,6 +91,7 @@ export const MODES: Record<PoMode, ModeProfile> = {
     id: 'handtmann',
     label: 'Handtmann',
     costSheet: THIRD_PARTY_COST,
+    costSheetCandidates: THIRD_PARTY_CANDIDATES,
     poSheets: ['PO Handtmann'],
     secondRateCol: 'T',
     xeroSheet: XERO_ZAR_SHEET,
@@ -75,7 +101,7 @@ export const MODES: Record<PoMode, ModeProfile> = {
     id: 'other',
     label: 'Others',
     costSheet: OTHERS_COST,
-    costSheetCandidates: [OTHERS_COST, 'Others-3rd pty', 'Others', 'Other_3rd Pty', THIRD_PARTY_COST, 'Quotation-3rd pty'],
+    costSheetCandidates: OTHERS_CANDIDATES,
     poSheets: ['PO Others'],
     poSheetCandidates: {
       'PO Others': ['PO Others', 'PO-Others', 'PO_Others', 'PO Other', 'PO-Other', 'PO_Other', 'PO others', 'PO-others'],
