@@ -151,7 +151,40 @@ async function pipe(answers: RawExtraction[]) {
   const h = detectSupplierFromText('Albert Handtmann Maschinenfabrik GmbH & Co. KG Hubertus-Liebrecht-Str. 10-12 88400 Biberach www.handtmann.de Code Description Net Price Quantity');
   eq('detect Handtmann quotation', [h.supplier, h.confidence, h.detectedName], ['handtmann', 'high', 'Handtmann']);
 
-  const o = detectSupplierFromText('ULMA Packaging GmbH Quotation No. 99412 Item Reference Description Unit Price Quantity Total');
+  // Handtmann quotation addressed to Multivac Southern Africa (customer/agent) must detect Handtmann, NEVER Multivac
+  const hWithMultivacCustomer = detectSupplierFromText(
+    'Customer: MULTIVAC Southern Africa (Pty) Ltd www.multivac.com info@multivac.co.za Quotation HANDTMANN Spare Parts Code Description Quantity Net Price ZAR',
+  );
+  eq('detect Handtmann when Multivac is customer/agent', [hWithMultivacCustomer.supplier, hWithMultivacCustomer.confidence, hWithMultivacCustomer.detectedName], ['handtmann', 'high', 'Handtmann']);
+
+  // Handtmann quotation where logo is an image and only Multivac Southern Africa + Handtmann columns (Code, Description, Quantity, Net Price) are in text
+  const hColumnsOnly = detectSupplierFromText(
+    'MULTIVAC Southern Africa (Pty) Ltd Reg No. Vat No. Quotation Date Currency ZAR Code Description Quantity Net Price 0912345 Seal ring 4 1200.00',
+  );
+  eq('detect Handtmann from table headers (Code, Description, Quantity, Net Price) even with Multivac header', [hColumnsOnly.supplier, hColumnsOnly.confidence, hColumnsOnly.detectedName], ['handtmann', 'high', 'Handtmann']);
+
+  // Handtmann PDF with kerned TJ array [(H) -15 (andtmann)] and Multivac customer text
+  const kernedHandtmannPdf = new TextEncoder().encode(
+    '%PDF-1.4\n1 0 obj << /Author (MULTIVAC) >>\nstream\nBT [(H) -15 (andtmann)] TJ (Customer: MULTIVAC Southern Africa) Tj (Code Description Quantity Net Price) Tj ET\nendstream\n%%EOF',
+  );
+  const hk = await detectSupplierFromPdfBytes(kernedHandtmannPdf);
+  eq('detect Handtmann from kerned PDF stream [(H) -15 (andtmann)]', [hk.supplier, hk.confidence, hk.detectedName], ['handtmann', 'high', 'Handtmann']);
+
+  // Handtmann PDF with ToUnicode CMap encoding
+  const cmapHandtmannPdf = new TextEncoder().encode(
+    '%PDF-1.4\n1 0 obj\nstream\nbeginbfchar\n<0001> <0048>\n<0002> <0041>\n<0003> <004E>\n<0004> <0044>\n<0005> <0054>\n<0006> <004D>\nendbfchar\nendstream\n2 0 obj\nstream\nBT <000100020003000400050006000200030003> Tj ET\nendstream\n%%EOF',
+  );
+  const hc = await detectSupplierFromPdfBytes(cmapHandtmannPdf);
+  eq('detect Handtmann from ToUnicode CMap PDF stream', [hc.supplier, hc.confidence, hc.detectedName], ['handtmann', 'high', 'Handtmann']);
+
+  // Bizerba quotation addressed to Multivac Southern Africa must detect Bizerba, NEVER Multivac
+  const bWithMultivacCustomer = detectSupplierFromText(
+    'To: MULTIVAC Southern Africa (Pty) Ltd From: Bizerba Southern Africa (Pty) Ltd www.bizerba.co.za Item Description Qty Net Price ZAR',
+  );
+  eq('detect Bizerba when Multivac is customer', [bWithMultivacCustomer.supplier, bWithMultivacCustomer.confidence, bWithMultivacCustomer.detectedName], ['bizerba', 'high', 'Bizerba']);
+
+  // Others quotation addressed to Multivac must detect Others, NEVER Multivac
+  const o = detectSupplierFromText('ULMA Packaging GmbH Customer: MULTIVAC Quotation No. 99412 Item Reference Description Unit Price Quantity Total');
   eq('detect Other supplier quotation', [o.supplier, o.confidence, o.detectedName], ['other', 'high', 'ULMA Packaging GmbH']);
 
   const u = detectSupplierFromText('12345');
@@ -165,6 +198,131 @@ async function pipe(answers: RawExtraction[]) {
     JSON.stringify({ supplier: 'other', confidence: 'high', detectedName: 'Weber Maschinenbau GmbH', reason: 'Header and logo show Weber Maschinenbau GmbH' }),
   );
   eq('Gemini supplier detection for Other', [geminiOther.supplier, geminiOther.confidence, geminiOther.detectedName], ['other', 'high', 'Weber Maschinenbau GmbH']);
+
+  // All 16 (Selected Tab x Uploaded PDF) combinations verification
+  const samplePdfs: Record<'multivac' | 'bizerba' | 'handtmann' | 'other', Uint8Array> = {
+    multivac: new TextEncoder().encode(
+      '%PDF-1.4\nstream\n(MULTIVAC Sepp Haggenmueller SE & Co. KG 87787 Wolfertschwenden Your quote request Pos. 10 List price Net price Invoice amount EUR) Tj\nendstream\n%%EOF',
+    ),
+    bizerba: new TextEncoder().encode(
+      '%PDF-1.4\nstream\n(Bizerba Southern Africa (Pty) Ltd www.bizerba.com Customer: MULTIVAC Item Description Qty Net Price ZAR) Tj\nendstream\n%%EOF',
+    ),
+    handtmann: new TextEncoder().encode(
+      '%PDF-1.4\nstream\n(HANDTMANN Albert Handtmann Maschinenfabrik Customer: MULTIVAC Southern Africa (Pty) Ltd Code Description Quantity Net Price ZAR) Tj\nendstream\n%%EOF',
+    ),
+    other: new TextEncoder().encode(
+      '%PDF-1.4\nstream\n(ULMA Packaging GmbH Customer: MULTIVAC Quotation No. 99412 Reference Description Unit Price Quantity Total EUR) Tj\nendstream\n%%EOF',
+    ),
+  };
+
+  const scenarios: Array<{ no: number; selected: 'multivac' | 'bizerba' | 'handtmann' | 'other'; uploaded: 'multivac' | 'bizerba' | 'handtmann' | 'other' }> = [
+    { no: 1, selected: 'multivac', uploaded: 'other' },
+    { no: 2, selected: 'multivac', uploaded: 'handtmann' },
+    { no: 3, selected: 'multivac', uploaded: 'bizerba' },
+    { no: 4, selected: 'multivac', uploaded: 'multivac' },
+    { no: 5, selected: 'bizerba', uploaded: 'multivac' },
+    { no: 6, selected: 'bizerba', uploaded: 'other' },
+    { no: 7, selected: 'bizerba', uploaded: 'handtmann' },
+    { no: 8, selected: 'bizerba', uploaded: 'bizerba' },
+    { no: 9, selected: 'handtmann', uploaded: 'other' },
+    { no: 10, selected: 'handtmann', uploaded: 'multivac' },
+    { no: 11, selected: 'handtmann', uploaded: 'bizerba' },
+    { no: 12, selected: 'handtmann', uploaded: 'handtmann' },
+    { no: 13, selected: 'other', uploaded: 'other' },
+    { no: 14, selected: 'other', uploaded: 'handtmann' },
+    { no: 15, selected: 'other', uploaded: 'bizerba' },
+    { no: 16, selected: 'other', uploaded: 'multivac' },
+  ];
+
+  for (const s of scenarios) {
+    const det = await detectSupplierFromPdfBytes(samplePdfs[s.uploaded]);
+    const nextTab = det.supplier !== 'uncertain' && det.confidence !== 'low' ? det.supplier : s.selected;
+    const switched = nextTab !== s.selected;
+    const expectedSwitched = s.selected !== s.uploaded;
+    eq(
+      `Scenario #${s.no} (${s.selected} -> upload ${s.uploaded})`,
+      [det.supplier, nextTab, switched],
+      [s.uploaded, s.uploaded, expectedSwitched],
+    );
+  }
+
+  // JSDOM UI verification of all 16 scenarios in <App />
+  const { JSDOM } = await import('jsdom');
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', { url: 'http://localhost/', pretendToBeVisual: true });
+  const win: any = dom.window;
+  for (const k of ['window', 'document', 'DOMParser', 'XMLSerializer', 'FileReader', 'Event', 'MouseEvent', 'HTMLElement', 'HTMLInputElement', 'Node', 'navigator']) {
+    Object.defineProperty(globalThis, k, { value: win[k], configurable: true, writable: true });
+  }
+  (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+  Object.defineProperty(win.HTMLElement.prototype, 'oninput', { value: null, writable: true, configurable: true });
+  (win.File.prototype as any).arrayBuffer = function () {
+    return new Promise((res, rej) => {
+      const r = new win.FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsArrayBuffer(this);
+    });
+  };
+
+  const React = (await import('react')).default;
+  const { act } = await import('react');
+  const { createRoot } = await import('react-dom/client');
+  const { default: App } = await import('../src/App');
+  const labelMap: Record<'multivac' | 'bizerba' | 'handtmann' | 'other', string> = {
+    multivac: 'Multivac',
+    bizerba: 'Bizerba',
+    handtmann: 'Handtmann',
+    other: 'Others',
+  };
+
+  for (const s of scenarios) {
+    document.body.innerHTML = '<div id="root"></div>';
+    const root = createRoot(document.getElementById('root')!);
+    await act(async () => {
+      root.render(React.createElement(App));
+    });
+
+    const getTabBtn = (lbl: string) =>
+      [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === lbl) as HTMLButtonElement;
+
+    // 1. Click initial selected tab
+    const initBtn = getTabBtn(labelMap[s.selected]);
+    await act(async () => {
+      initBtn.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    });
+
+    // 2. Upload the supplier PDF
+    const pdfInput = document.querySelectorAll('input[type="file"]')[0] as HTMLInputElement;
+    const file = new win.File([samplePdfs[s.uploaded]], `${s.uploaded}.pdf`, { type: 'application/pdf' });
+    Object.defineProperty(pdfInput, 'files', { value: [file], configurable: true });
+    await act(async () => {
+      pdfInput.dispatchEvent(new win.Event('change', { bubbles: true }));
+    });
+    // Wait for async PDF byte detection to settle
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 15));
+      });
+    }
+
+    const expectedActiveLabel = labelMap[s.uploaded];
+    const activeBtn = getTabBtn(expectedActiveLabel);
+    const isActive = activeBtn?.className.includes('bg-white') ?? false;
+    const mismatchEl = document.querySelector('[data-testid="supplier-mismatch-prompt"]');
+    const expectedMismatch = s.selected !== s.uploaded;
+
+    eq(
+      `UI Scenario #${s.no} (${labelMap[s.selected]} -> ${labelMap[s.uploaded]}): active tab & mismatch prompt`,
+      [isActive, !!mismatchEl],
+      [true, expectedMismatch],
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  }
 }
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
+
+

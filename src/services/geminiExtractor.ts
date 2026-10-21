@@ -313,19 +313,38 @@ const SUPPLIER_DETECTION_SCHEMA = {
   required: ['supplier', 'confidence', 'detectedName', 'reason'],
 };
 
-export const SUPPLIER_DETECTION_PROMPT = `You are a specialist document classifier for supplier quotations.
-Inspect the attached quotation PDF (including company name, logo, header, footer, legal entity details, address, website/email domain, and quotation layout) to identify the ISSUING SUPPLIER of the quotation.
+export const SUPPLIER_DETECTION_PROMPT = `You are a specialist document classifier for a MULTIVAC Purchase Order application.
+Inspect the attached quotation PDF (including company name, logo, header, footer, legal entity details, address, website/email domain, currency, and table column layout) to classify the quotation into one of four supplier categories: "multivac", "bizerba", "handtmann", or "other" (or "uncertain").
 
-Classify the issuing supplier into one of these four categories (or "uncertain"):
-- "multivac": Issued by MULTIVAC (e.g. MULTIVAC Sepp Haggenmüller SE & Co. KG, Wolfertschwenden, multivac.com, MULTIVAC logo/header, Pos. 10/20 layout with WebShop / Ex Works / Invoice amount).
-- "bizerba": Issued by BIZERBA (e.g. Bizerba SE & Co. KG, Bizerba Southern Africa, Balingen, bizerba.com, BIZERBA logo/header).
-- "handtmann": Issued by HANDTMANN (e.g. Albert Handtmann Maschinenfabrik, Handtmann Armaturenfabrik, Biberach, handtmann.de / handtmann.com, HANDTMANN logo/header).
-- "other": Issued by any clearly identifiable supplier company that is NOT Multivac, NOT Bizerba, and NOT Handtmann.
-- "uncertain": The document does not contain enough reliable information to confidently identify the issuing supplier.
+CRITICAL DOMAIN CONTEXT:
+1. The buyer/user operating this application is MULTIVAC (specifically Multivac Mauritius / Multivac Southern Africa). Because MULTIVAC is the BUYER/CUSTOMER on third-party quotations — and MULTIVAC Southern Africa is also the official Southern African distributor/agent for HANDTMANN — the name "MULTIVAC", "Multivac Southern Africa", or "@multivac.co.za" / "@multivac.com" frequently appears on HANDTMANN, BIZERBA, and OTHER supplier quotations!
+2. NEVER classify a document as "multivac" merely because "MULTIVAC" or "Multivac Southern Africa" appears as the customer/recipient, or on a South African (ZAR) quotation for Handtmann parts.
 
-RULES:
-- Identify the ISSUING SUPPLIER (the vendor issuing the quotation), NOT the buyer/customer and NOT a brand merely mentioned inside a spare part description.
-- Never guess. If the supplier cannot be confidently identified, return supplier: "uncertain" and confidence: "low".`;
+CLASSIFICATION RULES & PRIORITY:
+
+1. "handtmann" (HANDTMANN Quotation — TAKES STRICT PRIORITY OVER MULTIVAC):
+   Classify as "handtmann" (confidence: "high", detectedName: "Handtmann") if ANY of the following is true:
+   - The name or logo "HANDTMANN" (e.g., Handtmann, Albert Handtmann, Handtmann Maschinenfabrik, Handtmann Armaturenfabrik, Handtmann Service, handtmann.de, handtmann.com, Biberach) appears ANYWHERE in the document (header, logo, footer, title, vendor details, bank/email details, machine reference, or item descriptions).
+   - OR the quotation item table uses the Handtmann column headers: "Code", "Description", "Quantity", and "Net Price" (where Net Price is the line total, typically in ZAR), and the document is not from Bizerba.
+   - OR the quotation is a South African (ZAR) quotation (including quotes on Multivac Southern Africa letterhead/details) for Handtmann spare parts/equipment or using the "Code" | "Description" | "Quantity" | "Net Price" table layout.
+   - IMPORTANT: Whenever the document has both "MULTIVAC" (e.g. as customer or Southern African agent) and "HANDTMANN" (or the Handtmann "Code / Description / Quantity / Net Price" table layout), you MUST return supplier: "handtmann", NEVER "multivac".
+
+2. "bizerba" (BIZERBA Quotation — TAKES STRICT PRIORITY OVER MULTIVAC):
+   Classify as "bizerba" (confidence: "high", detectedName: "Bizerba") if:
+   - The name or logo "BIZERBA" (e.g., Bizerba SE & Co. KG, Bizerba Southern Africa (Pty) Ltd, Balingen, Wilhelm-Kraut-Straße, bizerba.com, bizerba.de, bizerba.co.za) appears in the document, OR the table uses Bizerba's "Item", "Description", "Qty", "Net Price" layout.
+   - Even if "MULTIVAC" appears as the customer/recipient, classify as "bizerba".
+
+3. "multivac" (MULTIVAC Factory Quotation — Quotation_MUWO):
+   Classify as "multivac" (confidence: "high", detectedName: "Multivac") ONLY when:
+   - The quotation is issued by MULTIVAC Factory in Germany (MULTIVAC Sepp Haggenmüller SE & Co. KG, Wolfertschwenden, Germany) in EUR (or uses the standard Multivac factory quotation layout: "Document" number at top, "Your quote request", line positions "Pos. 10, 20, 30...", "List price", discount %, per-unit "Net price", and "Invoice amount"),
+   - AND the document does NOT mention Handtmann or Bizerba, and does NOT use the Handtmann ("Code", "Description", "Quantity", "Net Price") or Bizerba ("Item", "Description", "Qty", "Net Price") table headers.
+
+4. "other" (Other Third-Party Supplier Quotation):
+   Classify as "other" (confidence: "high", detectedName: "<Actual Issuing Supplier Name>") when:
+   - The quotation is issued by any other clearly identifiable supplier company that is NOT Multivac, NOT Bizerba, and NOT Handtmann (even if the quotation is addressed to Multivac as the customer/buyer).
+
+5. "uncertain":
+   - Use ONLY if the document does not contain enough reliable information to confidently identify the supplier. Never guess.`;
 
 const VALID_DETECTED_SUPPLIERS: DetectedSupplierCategory[] = ['multivac', 'bizerba', 'handtmann', 'other', 'uncertain'];
 
@@ -352,6 +371,12 @@ export async function runSupplierDetection(generate: Generate): Promise<Supplier
 export async function detectSupplierFromPdf(pdfBase64: string, apiKey?: string): Promise<SupplierDetectionResult> {
   const bytes = Uint8Array.from(Buffer.from(pdfBase64, 'base64'));
   const local = await detectSupplierFromPdfBytes(bytes);
+
+  // If local byte extraction deterministically identified Handtmann or Bizerba with high confidence,
+  // return it immediately — Handtmann and Bizerba never appear as buyer names.
+  if ((local.supplier === 'handtmann' || local.supplier === 'bizerba') && local.confidence === 'high') {
+    return local;
+  }
 
   if (!apiKey) {
     return local;
