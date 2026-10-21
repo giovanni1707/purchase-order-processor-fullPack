@@ -1,4 +1,4 @@
-import { extractQuotationFromPdf } from './geminiExtractor.js';
+import { detectSupplierFromPdf, extractQuotationFromPdf } from './geminiExtractor.js';
 import { SUPPLIERS, type ColumnMap, type ColumnKey, type Supplier } from './quotation.js';
 
 export interface HandlerResult {
@@ -47,3 +47,19 @@ export async function handleExtract(body: any, apiKey: string | undefined, noKey
     return { status: 500, body: { success: false, error: friendlyError(err) } };
   }
 }
+
+export async function handleDetectSupplier(body: any, apiKey: string | undefined): Promise<HandlerResult> {
+  const pdfBase64 = body?.pdfBase64;
+  if (!pdfBase64 || typeof pdfBase64 !== 'string') {
+    return { status: 400, body: { success: false, error: 'Quotation PDF base64 is required in request body.' } };
+  }
+
+  try {
+    const detection = await detectSupplierFromPdf(pdfBase64, apiKey);
+    return { status: 200, body: { success: true, detection } };
+  } catch (err: any) {
+    console.error('Supplier detection error:', err);
+    return { status: 500, body: { success: false, error: friendlyError(err) } };
+  }
+}
+

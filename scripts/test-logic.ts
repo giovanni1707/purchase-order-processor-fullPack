@@ -1,6 +1,7 @@
 // Run: npx tsx scripts/test-logic.ts   (no API key needed: Gemini is replaced by a fake)
 import { analyze, applyAnswer, parseNumber, startWorking, toItems, type RawExtraction, type RawPosition, type Working } from '../src/services/quotation';
-import { buildPrompts, runExtraction, type Generate } from '../src/services/geminiExtractor';
+import { buildPrompts, runExtraction, runSupplierDetection, type Generate } from '../src/services/geminiExtractor';
+import { detectSupplierFromPdfBytes, detectSupplierFromText } from '../src/services/supplierDetector';
 
 let failed = 0, passed = 0;
 const ok = (name: string, cond: boolean, d: unknown = '') => { if (cond) passed++; else { failed++; console.log('FAIL', name, '->', typeof d === 'string' ? d : JSON.stringify(d)); } };
@@ -138,6 +139,32 @@ async function pipe(answers: RawExtraction[]) {
   ({ res } = await pipe([mk(2, f), mk(2)])); eq('only one pass unsure, both agree -> trusted', res.extraction!.positions[0].flags.length, 0);
   ({ res } = await pipe([mk(2, f), mk(2, f)])); eq('both passes unsure -> asked', res.extraction!.positions[0].flags.map((x) => x.field), ['price']);
   ({ res } = await pipe([ex([]), ex([])])); ok('no positions -> clear error', res.success === false && !!res.error, res);
+}
+// ------------------------------------------------------- supplier detection
+{
+  const m = detectSupplierFromText('MULTIVAC Sepp Haggenmüller SE & Co. KG Bahnhofstr. 4 87787 Wolfertschwenden Pos. 10 Invoice amount');
+  eq('detect Multivac quotation', [m.supplier, m.confidence, m.detectedName], ['multivac', 'high', 'Multivac']);
+
+  const b = detectSupplierFromText('Bizerba SE & Co. KG Wilhelm-Kraut-Straße 65 72336 Balingen www.bizerba.com Item Description Net Price Qty');
+  eq('detect Bizerba quotation', [b.supplier, b.confidence, b.detectedName], ['bizerba', 'high', 'Bizerba']);
+
+  const h = detectSupplierFromText('Albert Handtmann Maschinenfabrik GmbH & Co. KG Hubertus-Liebrecht-Str. 10-12 88400 Biberach www.handtmann.de Code Description Net Price Quantity');
+  eq('detect Handtmann quotation', [h.supplier, h.confidence, h.detectedName], ['handtmann', 'high', 'Handtmann']);
+
+  const o = detectSupplierFromText('ULMA Packaging GmbH Quotation No. 99412 Item Reference Description Unit Price Quantity Total');
+  eq('detect Other supplier quotation', [o.supplier, o.confidence, o.detectedName], ['other', 'high', 'ULMA Packaging GmbH']);
+
+  const u = detectSupplierFromText('12345');
+  eq('detect uncertain when insufficient text', [u.supplier, u.confidence], ['uncertain', 'low']);
+
+  const pdfBytes = new TextEncoder().encode('%PDF-1.4\n1 0 obj << /Title (BIZERBA Quotation) >>\nstream\n(Bizerba SE & Co. KG Balingen www.bizerba.com) Tj\nendstream\n%%EOF');
+  const pb = await detectSupplierFromPdfBytes(pdfBytes);
+  eq('detect supplier from PDF bytes', [pb.supplier, pb.confidence], ['bizerba', 'high']);
+
+  const geminiOther = await runSupplierDetection(async () =>
+    JSON.stringify({ supplier: 'other', confidence: 'high', detectedName: 'Weber Maschinenbau GmbH', reason: 'Header and logo show Weber Maschinenbau GmbH' }),
+  );
+  eq('Gemini supplier detection for Other', [geminiOther.supplier, geminiOther.confidence, geminiOther.detectedName], ['other', 'high', 'Weber Maschinenbau GmbH']);
 }
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

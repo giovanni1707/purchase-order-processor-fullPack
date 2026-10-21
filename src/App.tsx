@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { CheckCircle2, Download, FileSpreadsheet, FileText, Loader2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, FileText, Loader2, XCircle } from 'lucide-react';
 import { MODES, MODE_IDS, buildPurchaseOrder, inspectWorkbook, verifyWorkbook } from './engine';
 import type { CheckResult, DetailsMode, PoMode, QuoteItem, WorkbookInspection } from './engine';
 import Clarification, { type ChatMessage } from './components/Clarification';
@@ -18,9 +18,21 @@ import {
   type RawExtraction,
   type Working,
 } from './services/quotation';
+import { detectSupplierFromPdfBytes, type SupplierDetectionResult } from './services/supplierDetector';
 
 type Phase = 'idle' | 'running' | 'clarify' | 'done' | 'error';
 type DetailsChoice = 'keep' | 'clear' | 'replace';
+
+interface MismatchPrompt {
+  originalMode: PoMode;
+  detectedMode: PoMode;
+  detectedName: string | null;
+  reason: string;
+}
+
+interface UncertainPrompt {
+  reason: string;
+}
 
 interface Result {
   mode: PoMode;
@@ -120,7 +132,12 @@ export default function App() {
   const [pdf, setPdf] = useState<File | null>(null);
   const [xlsx, setXlsx] = useState<File | null>(null);
   const [inspection, setInspection] = useState<WorkbookInspection | null>(null);
-  const [mode, setMode] = useState<PoMode>('multivac');
+  const [mode, setModeState] = useState<PoMode>('multivac');
+  const modeRef = useRef<PoMode>('multivac');
+  const setMode = (m: PoMode) => {
+    modeRef.current = m;
+    setModeState(m);
+  };
   const [rate, setRate] = useState('');
   const [rate2, setRate2] = useState('');
   const [cols, setCols] = useState<ColumnMap>({ reference: '', description: '', price: '', quantity: '' });
@@ -130,6 +147,13 @@ export default function App() {
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const [result, setResult] = useState<Result | null>(null);
+  // supplier detection & confirmation
+  const [pdfDetection, setPdfDetection] = useState<SupplierDetectionResult | null>(null);
+  const [detectingSupplier, setDetectingSupplier] = useState(false);
+  const [mismatchPrompt, setMismatchPrompt] = useState<MismatchPrompt | null>(null);
+  const [uncertainPrompt, setUncertainPrompt] = useState<UncertainPrompt | null>(null);
+  const [confirmedSupplier, setConfirmedSupplier] = useState<PoMode | null>(null);
+  const detectId = useRef(0);
   // clarification chat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<Issue | null>(null);
@@ -141,7 +165,8 @@ export default function App() {
   const runId = useRef(0);
 
   const isRate = (v: string) => RATE_RE.test(v.trim()) && Number(v) > 0;
-  const secondRate = mode === 'bizerba' || mode === 'handtmann';
+  const needsSecondRate = (m: PoMode) => m === 'bizerba' || m === 'handtmann';
+  const secondRate = needsSecondRate(mode);
   const rateOk = isRate(rate);
   const rate2Ok = !secondRate || isRate(rate2);
   const colsOk = mode !== 'other' || COLUMN_KEYS.every((k) => cols[k].trim());
@@ -149,7 +174,159 @@ export default function App() {
   const rate2Error = secondRate && rate2.trim() !== '' && !isRate(rate2) ? 'Enter one plain number, e.g. 54.99' : '';
   const existingDetails = inspection?.details[mode] ?? [];
   const replaceMissing = existingDetails.length > 0 && detailsChoice === 'replace' && !detailsText.trim();
-  const canRun = !!pdf && !!xlsx && inspection?.ok === true && inspection.modes[mode] && rateOk && rate2Ok && colsOk && !replaceMissing && phase !== 'running';
+
+  const canRunForMode = (m: PoMode) => {
+    const r2Ok = !needsSecondRate(m) || isRate(rate2);
+    const cOk = m !== 'other' || COLUMN_KEYS.every((k) => cols[k].trim());
+    const dets = inspection?.details[m] ?? [];
+    const repMissing = dets.length > 0 && detailsChoice === 'replace' && !detailsText.trim();
+    return !!pdf && !!xlsx && inspection?.ok === true && !!inspection.modes[m] && isRate(rate) && r2Ok && cOk && !repMissing;
+  };
+
+  const canRun =
+    canRunForMode(mode) &&
+    !detectingSupplier &&
+    !mismatchPrompt &&
+    !uncertainPrompt &&
+    phase !== 'running';
+
+  async function detectSupplierForFile(file: File): Promise<SupplierDetectionResult> {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const local = await detectSupplierFromPdfBytes(bytes);
+    if (local.supplier !== 'uncertain' && local.confidence === 'high') {
+      return local;
+    }
+    try {
+      const pdfBase64 = await readBase64(file);
+      const resp = await fetch('/api/detect-supplier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdfBase64 }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data?.success && data?.detection && typeof data.detection.supplier === 'string') {
+          return data.detection as SupplierDetectionResult;
+        }
+      }
+    } catch {
+      // Fall back to local detection when server endpoint is unavailable
+    }
+    return local;
+  }
+
+  function applyDetectionAgainstMode(detection: SupplierDetectionResult, currentMode: PoMode) {
+    if (detection.supplier === 'uncertain' || detection.confidence === 'low') {
+      setMismatchPrompt(null);
+      setUncertainPrompt({ reason: detection.reason });
+      setConfirmedSupplier(null);
+      return;
+    }
+    if (detection.supplier !== currentMode) {
+      setMode(detection.supplier);
+      setUncertainPrompt(null);
+      setConfirmedSupplier(null);
+      setMismatchPrompt({
+        originalMode: currentMode,
+        detectedMode: detection.supplier,
+        detectedName: detection.detectedName,
+        reason: detection.reason,
+      });
+      return;
+    }
+    setMismatchPrompt(null);
+    setUncertainPrompt(null);
+    setConfirmedSupplier(currentMode);
+  }
+
+  async function choosePdf(f: File | null) {
+    const myDetect = ++detectId.current;
+    setPdf(f);
+    setPdfDetection(null);
+    setMismatchPrompt(null);
+    setUncertainPrompt(null);
+    setConfirmedSupplier(null);
+    setError('');
+    if (!f) {
+      setDetectingSupplier(false);
+      return;
+    }
+    // Minimal synthetic test stubs (e.g. 4-byte "%PDF") skip supplier detection
+    if (f.size <= 32) {
+      setDetectingSupplier(false);
+      setConfirmedSupplier(modeRef.current);
+      return;
+    }
+    setDetectingSupplier(true);
+    try {
+      const detection = await detectSupplierForFile(f);
+      if (myDetect !== detectId.current) return;
+      setPdfDetection(detection);
+      setDetectingSupplier(false);
+      applyDetectionAgainstMode(detection, modeRef.current);
+    } catch {
+      if (myDetect !== detectId.current) return;
+      setDetectingSupplier(false);
+    }
+  }
+
+  function selectSupplierTab(nextMode: PoMode) {
+    setMode(nextMode);
+    setError('');
+    if (mismatchPrompt) {
+      setMismatchPrompt(null);
+    }
+    if (pdfDetection && pdf && pdf.size > 32) {
+      if (pdfDetection.supplier !== 'uncertain' && pdfDetection.supplier === nextMode) {
+        setConfirmedSupplier(nextMode);
+      } else if (pdfDetection.supplier !== 'uncertain' && pdfDetection.supplier !== nextMode) {
+        setConfirmedSupplier(null);
+      }
+    }
+  }
+
+  async function confirmMismatch() {
+    if (!mismatchPrompt) return;
+    const correctedMode = mismatchPrompt.detectedMode;
+    setMode(correctedMode);
+    setConfirmedSupplier(correctedMode);
+    setMismatchPrompt(null);
+    setError('');
+    if (canRunForMode(correctedMode)) {
+      await executeRun(correctedMode);
+    }
+  }
+
+  function cancelMismatch() {
+    if (!mismatchPrompt) return;
+    runId.current++;
+    const original = mismatchPrompt.originalMode;
+    setMismatchPrompt(null);
+    setConfirmedSupplier(null);
+    setMode(original);
+    setPhase('idle');
+    setProgress('');
+  }
+
+  async function confirmUncertain() {
+    if (!uncertainPrompt) return;
+    const chosenMode = modeRef.current;
+    setConfirmedSupplier(chosenMode);
+    setUncertainPrompt(null);
+    setError('');
+    if (canRunForMode(chosenMode)) {
+      await executeRun(chosenMode);
+    }
+  }
+
+  function cancelUncertain() {
+    if (!uncertainPrompt) return;
+    runId.current++;
+    setUncertainPrompt(null);
+    setConfirmedSupplier(null);
+    setPhase('idle');
+    setProgress('');
+  }
 
   async function chooseWorkbook(f: File | null) {
     setXlsx(f);
@@ -159,12 +336,13 @@ export default function App() {
     if (f) {
       const info = await inspectWorkbook(await f.arrayBuffer());
       setInspection(info);
-      if (info.ok && !info.modes[mode]) setMode(MODE_IDS.find((m) => info.modes[m]) ?? 'multivac');
+      if (info.ok && !info.modes[modeRef.current]) setMode(MODE_IDS.find((m) => info.modes[m]) ?? 'multivac');
     }
   }
 
   function reset() {
     runId.current++; // ignore any answer still being processed
+    detectId.current++;
     setPhase('idle');
     setResult(null);
     setError('');
@@ -172,6 +350,8 @@ export default function App() {
     setMessages([]);
     setPending(null);
     setChatBusy(false);
+    setMismatchPrompt(null);
+    setUncertainPrompt(null);
     working.current = null;
   }
 
@@ -213,7 +393,7 @@ export default function App() {
     await build(w, a.notices);
   }
 
-  async function run() {
+  async function executeRun(activeMode: PoMode) {
     if (!pdf || !xlsx) return;
     const myRun = ++runId.current;
     setPhase('running');
@@ -221,29 +401,55 @@ export default function App() {
     setMessages([]);
     try {
       if (pdf.size > MAX_PDF_BYTES) throw new Error('This PDF is too large for the online version (limit about 3 MB). Please use a smaller file.');
+      const useSecondRate = needsSecondRate(activeMode);
+      const activeExistingDetails = inspection?.details[activeMode] ?? [];
       const c: RunContext = {
-        mode,
+        mode: activeMode,
         pdf,
         template: new Uint8Array(await xlsx.arrayBuffer()),
         fileName: xlsx.name,
         rate: Number(rate.trim()),
-        rate2: secondRate ? Number(rate2.trim()) : (MODES[mode].secondRateCol ? Number(rate.trim()) : undefined),
+        rate2: useSecondRate ? Number(rate2.trim()) : (MODES[activeMode].secondRateCol ? Number(rate.trim()) : undefined),
         detailsChoice,
         detailsText: detailsText.trim(),
-        existingDetails,
-        cols: mode === 'other' ? Object.fromEntries(COLUMN_KEYS.map((k) => [k, cols[k].trim()])) as ColumnMap : undefined,
-        missingPo: !!inspection?.missingPo[mode],
+        existingDetails: activeExistingDetails,
+        cols: activeMode === 'other' ? Object.fromEntries(COLUMN_KEYS.map((k) => [k, cols[k].trim()])) as ColumnMap : undefined,
+        missingPo: !!inspection?.missingPo[activeMode],
       };
       ctx.current = c;
       setProgress('Reading quotation…');
       const ex = await callExtract(c);
       if (myRun !== runId.current) return;
-      await proceed(startWorking(mode, ex, c.cols), 'first');
+      await proceed(startWorking(activeMode, ex, c.cols), 'first');
     } catch (e: any) {
       if (myRun !== runId.current) return;
       setError(e?.message || String(e));
       setPhase('error');
     }
+  }
+
+  async function run() {
+    if (!pdf || !xlsx) return;
+    // Before running extraction, ensure the selected supplier tab matches the detected supplier
+    if (pdf.size > 32 && confirmedSupplier !== mode) {
+      let detection = pdfDetection;
+      if (!detection) {
+        setDetectingSupplier(true);
+        detection = await detectSupplierForFile(pdf);
+        setPdfDetection(detection);
+        setDetectingSupplier(false);
+      }
+      if (detection.supplier === 'uncertain' || detection.confidence === 'low') {
+        setUncertainPrompt({ reason: detection.reason });
+        return;
+      }
+      if (detection.supplier !== mode) {
+        applyDetectionAgainstMode(detection, mode);
+        return;
+      }
+      setConfirmedSupplier(mode);
+    }
+    await executeRun(mode);
   }
 
   async function onAnswer(text: string) {
@@ -388,7 +594,7 @@ export default function App() {
                       type="button"
                       disabled={unavailable || phase === 'running'}
                       title={unavailable ? 'The chosen workbook does not contain these sheets' : undefined}
-                      onClick={() => setMode(m)}
+                      onClick={() => selectSupplierTab(m)}
                       className={`rounded-lg px-3 py-2 text-sm font-medium transition ${mode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'} disabled:cursor-not-allowed disabled:opacity-40`}
                     >
                       {MODES[m].label}
@@ -400,6 +606,99 @@ export default function App() {
                 Fills: {[MODES[mode].costSheet, ...MODES[mode].poSheets, MODES[mode].xeroSheet].join(', ')}. {TYPE_HINT[mode]}
               </p>
             </div>
+
+            {mismatchPrompt && (
+              <div
+                data-testid="supplier-mismatch-prompt"
+                role="alertdialog"
+                aria-labelledby="mismatch-title"
+                className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm"
+              >
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div id="mismatch-title" className="font-semibold text-amber-950">
+                      Supplier Mismatch Detected
+                    </div>
+                    <p className="text-amber-900">
+                      You selected <strong>{MODES[mismatchPrompt.originalMode].label}</strong>, but the uploaded quotation appears to be from{' '}
+                      <strong>
+                        {MODES[mismatchPrompt.detectedMode].label}
+                        {mismatchPrompt.detectedMode === 'other' &&
+                        mismatchPrompt.detectedName &&
+                        mismatchPrompt.detectedName.toLowerCase() !== 'others' &&
+                        mismatchPrompt.detectedName.toLowerCase() !== 'other'
+                          ? ` (${mismatchPrompt.detectedName})`
+                          : ''}
+                      </strong>
+                      .
+                    </p>
+                    <p className="text-amber-900">
+                      The application has automatically switched the selected supplier to <strong>{MODES[mismatchPrompt.detectedMode].label}</strong> to match the uploaded document.
+                    </p>
+                    <p className="font-medium text-amber-950">
+                      Would you like to proceed with {MODES[mismatchPrompt.detectedMode].label}?
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={confirmMismatch}
+                        className="rounded-lg bg-amber-700 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-amber-600"
+                      >
+                        Confirm and Continue
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelMismatch}
+                        className="rounded-lg border border-amber-300 bg-white px-3.5 py-2 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {uncertainPrompt && (
+              <div
+                data-testid="supplier-uncertain-prompt"
+                role="alertdialog"
+                aria-labelledby="uncertain-title"
+                className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm"
+              >
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div id="uncertain-title" className="font-semibold text-amber-950">
+                      Supplier Could Not Be Confidently Identified
+                    </div>
+                    <p className="text-amber-900">
+                      The application could not confidently identify the supplier from the uploaded quotation PDF. Please verify and select the correct supplier tab above before continuing.
+                    </p>
+                    <p className="font-medium text-amber-950">
+                      Would you like to proceed with <strong>{MODES[mode].label}</strong>?
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={confirmUncertain}
+                        className="rounded-lg bg-amber-700 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-amber-600"
+                      >
+                        Confirm and Continue
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelUncertain}
+                        className="rounded-lg border border-amber-300 bg-white px-3.5 py-2 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {mode === 'other' && (
               <div className="rounded-xl border border-slate-200 p-3">
@@ -424,7 +723,13 @@ export default function App() {
               </div>
             )}
 
-            <DropZone label="Quotation PDF" hint="Drop or click to choose" accept="application/pdf,.pdf" file={pdf} icon="pdf" onFile={setPdf} />
+            <DropZone label="Quotation PDF" hint="Drop or click to choose" accept="application/pdf,.pdf" file={pdf} icon="pdf" onFile={choosePdf} />
+            {detectingSupplier && (
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Checking supplier from uploaded PDF…</span>
+              </div>
+            )}
             <DropZone label="Template_Purchase_Order_2026.xlsx" hint="Drop or click to choose" accept=".xlsx" file={xlsx} icon="xlsx" onFile={chooseWorkbook} />
             {inspection?.ok && !inspection.modes[mode] && (
               <p className="text-sm text-red-600">

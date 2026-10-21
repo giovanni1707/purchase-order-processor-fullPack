@@ -3,6 +3,10 @@
     "api/extract.ts": {
       "maxDuration": 60,
       "memory": 1024
+    },
+    "api/detect-supplier.ts": {
+      "maxDuration": 60,
+      "memory": 1024
     }
   },
   "rewrites": [

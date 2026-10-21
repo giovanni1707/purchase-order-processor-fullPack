@@ -8,8 +8,14 @@ import {
   type RawPosition,
   type Supplier,
 } from './quotation.js';
+import {
+  detectSupplierFromPdfBytes,
+  type DetectedSupplierCategory,
+  type SupplierDetectionResult,
+} from './supplierDetector.js';
 
 export type { RawExtraction, RawPosition, Supplier, ColumnMap } from './quotation.js';
+export type { DetectedSupplierCategory, SupplierDetectionResult } from './supplierDetector.js';
 
 export interface ExtractionResult {
   success: boolean;
@@ -278,3 +284,102 @@ export async function extractQuotationFromPdf(pdfBase64: string, apiKey: string,
   };
   return runExtraction(generate, opts);
 }
+
+// --------------------------------------------------------- supplier detection
+const SUPPLIER_DETECTION_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    supplier: {
+      type: Type.STRING,
+      enum: ['multivac', 'bizerba', 'handtmann', 'other', 'uncertain'],
+      description:
+        'Category of the issuing supplier: "multivac" for MULTIVAC, "bizerba" for BIZERBA, "handtmann" for HANDTMANN, "other" for any other identifiable supplier company, or "uncertain" if the supplier cannot be confidently identified.',
+    },
+    confidence: {
+      type: Type.STRING,
+      enum: ['high', 'medium', 'low'],
+      description: 'Confidence in the supplier identification.',
+    },
+    detectedName: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'The name of the issuing supplier company printed on the quotation (e.g. "Multivac", "Bizerba", "Handtmann", or the third-party vendor name). null if uncertain.',
+    },
+    reason: {
+      type: Type.STRING,
+      description: 'One short sentence explaining what identifying information (logo, company name, address, domain, or layout) was used.',
+    },
+  },
+  required: ['supplier', 'confidence', 'detectedName', 'reason'],
+};
+
+export const SUPPLIER_DETECTION_PROMPT = `You are a specialist document classifier for supplier quotations.
+Inspect the attached quotation PDF (including company name, logo, header, footer, legal entity details, address, website/email domain, and quotation layout) to identify the ISSUING SUPPLIER of the quotation.
+
+Classify the issuing supplier into one of these four categories (or "uncertain"):
+- "multivac": Issued by MULTIVAC (e.g. MULTIVAC Sepp Haggenmüller SE & Co. KG, Wolfertschwenden, multivac.com, MULTIVAC logo/header, Pos. 10/20 layout with WebShop / Ex Works / Invoice amount).
+- "bizerba": Issued by BIZERBA (e.g. Bizerba SE & Co. KG, Bizerba Southern Africa, Balingen, bizerba.com, BIZERBA logo/header).
+- "handtmann": Issued by HANDTMANN (e.g. Albert Handtmann Maschinenfabrik, Handtmann Armaturenfabrik, Biberach, handtmann.de / handtmann.com, HANDTMANN logo/header).
+- "other": Issued by any clearly identifiable supplier company that is NOT Multivac, NOT Bizerba, and NOT Handtmann.
+- "uncertain": The document does not contain enough reliable information to confidently identify the issuing supplier.
+
+RULES:
+- Identify the ISSUING SUPPLIER (the vendor issuing the quotation), NOT the buyer/customer and NOT a brand merely mentioned inside a spare part description.
+- Never guess. If the supplier cannot be confidently identified, return supplier: "uncertain" and confidence: "low".`;
+
+const VALID_DETECTED_SUPPLIERS: DetectedSupplierCategory[] = ['multivac', 'bizerba', 'handtmann', 'other', 'uncertain'];
+
+export async function runSupplierDetection(generate: Generate): Promise<SupplierDetectionResult> {
+  const raw = await generate(SUPPLIER_DETECTION_PROMPT, SUPPLIER_DETECTION_SCHEMA);
+  const parsed = JSON.parse(raw || '{}');
+  const supplier: DetectedSupplierCategory = VALID_DETECTED_SUPPLIERS.includes(parsed?.supplier)
+    ? parsed.supplier
+    : 'uncertain';
+  const confidence: 'high' | 'medium' | 'low' =
+    supplier === 'uncertain'
+      ? 'low'
+      : parsed?.confidence === 'high' || parsed?.confidence === 'medium' || parsed?.confidence === 'low'
+        ? parsed.confidence
+        : 'high';
+  return {
+    supplier,
+    confidence,
+    detectedName: typeof parsed?.detectedName === 'string' && parsed.detectedName.trim() ? parsed.detectedName.trim() : null,
+    reason: typeof parsed?.reason === 'string' && parsed.reason.trim() ? parsed.reason.trim() : 'Analyzed PDF document content.',
+  };
+}
+
+export async function detectSupplierFromPdf(pdfBase64: string, apiKey?: string): Promise<SupplierDetectionResult> {
+  const bytes = Uint8Array.from(Buffer.from(pdfBase64, 'base64'));
+  const local = await detectSupplierFromPdfBytes(bytes);
+
+  if (!apiKey) {
+    return local;
+  }
+
+  try {
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+    const generate: Generate = async (prompt, schema) => {
+      const res = await callGeminiWithRetry(ai, {
+        model: 'gemini-3.8-flash',
+        contents: [{ parts: [{ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }, { text: prompt }] }],
+        config: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 },
+      });
+      return res.text || '{}';
+    };
+    const remote = await runSupplierDetection(generate);
+    if (remote.supplier !== 'uncertain' && remote.confidence !== 'low') {
+      return remote;
+    }
+    if (local.supplier !== 'uncertain' && local.confidence === 'high') {
+      return local;
+    }
+    return remote;
+  } catch (err) {
+    if (local.supplier !== 'uncertain') {
+      return local;
+    }
+    throw err;
+  }
+}
+

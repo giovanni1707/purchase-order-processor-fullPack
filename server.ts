@@ -2,7 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { handleExtract } from './src/services/extractHandler';
+import { handleDetectSupplier, handleExtract } from './src/services/extractHandler';
 
 dotenv.config({ override: true });
 
@@ -26,6 +26,12 @@ app.post(['/api/extract', '/extract'], async (req, res) => {
     getApiKey(),
     'GEMINI_API_KEY is not configured on the server. Please set GEMINI_API_KEY.',
   );
+  res.status(out.status).json(out.body);
+});
+
+// Supplier detection endpoint (supports both /api/detect-supplier and /detect-supplier)
+app.post(['/api/detect-supplier', '/detect-supplier'], async (req, res) => {
+  const out = await handleDetectSupplier(req.body, getApiKey());
   res.status(out.status).json(out.body);
 });
 
