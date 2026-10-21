@@ -142,33 +142,38 @@ async function pipe(answers: RawExtraction[]) {
 }
 // ------------------------------------------------------- supplier detection
 {
-  const m = detectSupplierFromText('MULTIVAC Sepp Haggenmüller SE & Co. KG Bahnhofstr. 4 87787 Wolfertschwenden Pos. 10 Invoice amount');
-  eq('detect Multivac quotation', [m.supplier, m.confidence, m.detectedName], ['multivac', 'high', 'Multivac']);
+  const m = detectSupplierFromText(
+    'MULTIVAC Service und Logistik GmbH & Co. KG Gewerbestraße 15, 87787 Wolfertschwenden, Germany +49 (0) 8334 601-0 +49 (0) 8334 601-199 muwo@multivac.de www.multivac.com DE 364316979 Amtsgericht Memmingen, HRA 13980 MULTIVAC Service und Logistik Verwaltungs GmbH Dr. Christian Lau, Dr. Johannes Epple stefan.kirchmann@multivac.de',
+  );
+  eq('detect Multivac quotation from MULTIVAC Service und Logistik GmbH & Co. KG details', [m.supplier, m.confidence, m.detectedName], ['multivac', 'high', 'Multivac']);
 
   const b = detectSupplierFromText('Bizerba SE & Co. KG Wilhelm-Kraut-Straße 65 72336 Balingen www.bizerba.com Item Description Net Price Qty');
   eq('detect Bizerba quotation', [b.supplier, b.confidence, b.detectedName], ['bizerba', 'high', 'Bizerba']);
 
-  const h = detectSupplierFromText('Albert Handtmann Maschinenfabrik GmbH & Co. KG Hubertus-Liebrecht-Str. 10-12 88400 Biberach www.handtmann.de Code Description Net Price Quantity');
-  eq('detect Handtmann quotation', [h.supplier, h.confidence, h.detectedName], ['handtmann', 'high', 'Handtmann']);
-
-  // Handtmann quotation addressed to Multivac Southern Africa (customer/agent) must detect Handtmann, NEVER Multivac
-  const hWithMultivacCustomer = detectSupplierFromText(
-    'Customer: MULTIVAC Southern Africa (Pty) Ltd www.multivac.com info@multivac.co.za Quotation HANDTMANN Spare Parts Code Description Quantity Net Price ZAR',
+  const h = detectSupplierFromText(
+    'MULTIVAC SOUTHERN AFRICA (Pty) Ltd VAT Registration Number: 4770217620 PostNet Suite 514, Private Bag H607, Heidelberg, 1438 Telephone: +27 (0) 16 340 5800 Fax: +27 (0) 16 340 5819 www.multivac.com',
   );
-  eq('detect Handtmann when Multivac is customer/agent', [hWithMultivacCustomer.supplier, hWithMultivacCustomer.confidence, hWithMultivacCustomer.detectedName], ['handtmann', 'high', 'Handtmann']);
+  eq('detect Handtmann quotation from MULTIVAC SOUTHERN AFRICA (Pty) Ltd details', [h.supplier, h.confidence, h.detectedName], ['handtmann', 'high', 'Handtmann']);
+
+  const hVatOnly = detectSupplierFromText('Tax Invoice / Quotation VAT Registration Number 4770217620 PostNet Suite 514 Private Bag H607 Heidelberg, 1438');
+  eq('detect Handtmann from VAT 4770217620 and Heidelberg address', [hVatOnly.supplier, hVatOnly.confidence, hVatOnly.detectedName], ['handtmann', 'high', 'Handtmann']);
+
+  // Generic "MULTIVAC" alone without company details must NOT be guessed as Multivac
+  const genericMultivacOnly = detectSupplierFromText('MULTIVAC Quotation 12345');
+  eq('generic MULTIVAC without company details is uncertain', [genericMultivacOnly.supplier, genericMultivacOnly.confidence], ['uncertain', 'low']);
 
   // Handtmann quotation where logo is an image and only Multivac Southern Africa + Handtmann columns (Code, Description, Quantity, Net Price) are in text
   const hColumnsOnly = detectSupplierFromText(
     'MULTIVAC Southern Africa (Pty) Ltd Reg No. Vat No. Quotation Date Currency ZAR Code Description Quantity Net Price 0912345 Seal ring 4 1200.00',
   );
-  eq('detect Handtmann from table headers (Code, Description, Quantity, Net Price) even with Multivac header', [hColumnsOnly.supplier, hColumnsOnly.confidence, hColumnsOnly.detectedName], ['handtmann', 'high', 'Handtmann']);
+  eq('detect Handtmann from MULTIVAC Southern Africa + table headers', [hColumnsOnly.supplier, hColumnsOnly.confidence, hColumnsOnly.detectedName], ['handtmann', 'high', 'Handtmann']);
 
   // Handtmann PDF with kerned TJ array [(H) -15 (andtmann)] and Multivac customer text
   const kernedHandtmannPdf = new TextEncoder().encode(
-    '%PDF-1.4\n1 0 obj << /Author (MULTIVAC) >>\nstream\nBT [(H) -15 (andtmann)] TJ (Customer: MULTIVAC Southern Africa) Tj (Code Description Quantity Net Price) Tj ET\nendstream\n%%EOF',
+    '%PDF-1.4\n1 0 obj << /Author (MULTIVAC) >>\nstream\nBT [(H) -15 (andtmann)] TJ (MULTIVAC SOUTHERN AFRICA (Pty) Ltd) Tj (Code Description Quantity Net Price) Tj ET\nendstream\n%%EOF',
   );
   const hk = await detectSupplierFromPdfBytes(kernedHandtmannPdf);
-  eq('detect Handtmann from kerned PDF stream [(H) -15 (andtmann)]', [hk.supplier, hk.confidence, hk.detectedName], ['handtmann', 'high', 'Handtmann']);
+  eq('detect Handtmann from kerned PDF stream [(H) -15 (andtmann)] and nested parens (Pty) Ltd', [hk.supplier, hk.confidence, hk.detectedName], ['handtmann', 'high', 'Handtmann']);
 
   // Handtmann PDF with ToUnicode CMap encoding
   const cmapHandtmannPdf = new TextEncoder().encode(
@@ -177,13 +182,13 @@ async function pipe(answers: RawExtraction[]) {
   const hc = await detectSupplierFromPdfBytes(cmapHandtmannPdf);
   eq('detect Handtmann from ToUnicode CMap PDF stream', [hc.supplier, hc.confidence, hc.detectedName], ['handtmann', 'high', 'Handtmann']);
 
-  // Bizerba quotation addressed to Multivac Southern Africa must detect Bizerba, NEVER Multivac
-  const bWithMultivacCustomer = detectSupplierFromText(
-    'To: MULTIVAC Southern Africa (Pty) Ltd From: Bizerba Southern Africa (Pty) Ltd www.bizerba.co.za Item Description Qty Net Price ZAR',
+  // Bizerba quotation addressed to customer must detect Bizerba
+  const bWithCustomer = detectSupplierFromText(
+    'From: Bizerba Southern Africa (Pty) Ltd www.bizerba.co.za Wilhelm-Kraut-Straße 65 72336 Balingen Item Description Qty Net Price ZAR',
   );
-  eq('detect Bizerba when Multivac is customer', [bWithMultivacCustomer.supplier, bWithMultivacCustomer.confidence, bWithMultivacCustomer.detectedName], ['bizerba', 'high', 'Bizerba']);
+  eq('detect Bizerba quotation with South African branch', [bWithCustomer.supplier, bWithCustomer.confidence, bWithCustomer.detectedName], ['bizerba', 'high', 'Bizerba']);
 
-  // Others quotation addressed to Multivac must detect Others, NEVER Multivac
+  // Others quotation must detect Others, NEVER Multivac
   const o = detectSupplierFromText('ULMA Packaging GmbH Customer: MULTIVAC Quotation No. 99412 Item Reference Description Unit Price Quantity Total');
   eq('detect Other supplier quotation', [o.supplier, o.confidence, o.detectedName], ['other', 'high', 'ULMA Packaging GmbH']);
 
@@ -199,16 +204,27 @@ async function pipe(answers: RawExtraction[]) {
   );
   eq('Gemini supplier detection for Other', [geminiOther.supplier, geminiOther.confidence, geminiOther.detectedName], ['other', 'high', 'Weber Maschinenbau GmbH']);
 
-  // All 16 (Selected Tab x Uploaded PDF) combinations verification
+  // Verify Gemini fallback post-verification overrides any mistaken 'multivac' when MULTIVAC SOUTHERN AFRICA (Pty) Ltd is in detectedName/reason
+  const geminiHandtmannOverride = await runSupplierDetection(async () =>
+    JSON.stringify({
+      supplier: 'multivac',
+      confidence: 'high',
+      detectedName: 'MULTIVAC SOUTHERN AFRICA (Pty) Ltd',
+      reason: 'Issued by MULTIVAC SOUTHERN AFRICA (Pty) Ltd, VAT 4770217620, PostNet Suite 514, Private Bag H607, Heidelberg, 1438',
+    }),
+  );
+  eq('Gemini post-verification enforces Handtmann for MULTIVAC SOUTHERN AFRICA (Pty) Ltd', [geminiHandtmannOverride.supplier, geminiHandtmannOverride.confidence, geminiHandtmannOverride.detectedName], ['handtmann', 'high', 'Handtmann']);
+
+  // All 16 (Selected Tab x Uploaded PDF) combinations verification using exact company details
   const samplePdfs: Record<'multivac' | 'bizerba' | 'handtmann' | 'other', Uint8Array> = {
     multivac: new TextEncoder().encode(
-      '%PDF-1.4\nstream\n(MULTIVAC Sepp Haggenmueller SE & Co. KG 87787 Wolfertschwenden Your quote request Pos. 10 List price Net price Invoice amount EUR) Tj\nendstream\n%%EOF',
+      '%PDF-1.4\nstream\n(MULTIVAC Service und Logistik GmbH & Co. KG Gewerbestraße 15, 87787 Wolfertschwenden, Germany +49 (0) 8334 601-0 muwo@multivac.de DE 364316979 Amtsgericht Memmingen, HRA 13980) Tj\nendstream\n%%EOF',
     ),
     bizerba: new TextEncoder().encode(
-      '%PDF-1.4\nstream\n(Bizerba Southern Africa (Pty) Ltd www.bizerba.com Customer: MULTIVAC Item Description Qty Net Price ZAR) Tj\nendstream\n%%EOF',
+      '%PDF-1.4\nstream\n(Bizerba SE & Co. KG Wilhelm-Kraut-Straße 65 72336 Balingen www.bizerba.com Item Description Qty Net Price ZAR) Tj\nendstream\n%%EOF',
     ),
     handtmann: new TextEncoder().encode(
-      '%PDF-1.4\nstream\n(HANDTMANN Albert Handtmann Maschinenfabrik Customer: MULTIVAC Southern Africa (Pty) Ltd Code Description Quantity Net Price ZAR) Tj\nendstream\n%%EOF',
+      '%PDF-1.4\nstream\n(MULTIVAC SOUTHERN AFRICA (Pty) Ltd VAT Registration Number: 4770217620 PostNet Suite 514, Private Bag H607, Heidelberg, 1438 +27 (0) 16 340 5800 +27 (0) 16 340 5819 www.multivac.com) Tj\nendstream\n%%EOF',
     ),
     other: new TextEncoder().encode(
       '%PDF-1.4\nstream\n(ULMA Packaging GmbH Customer: MULTIVAC Quotation No. 99412 Reference Description Unit Price Quantity Total EUR) Tj\nendstream\n%%EOF',

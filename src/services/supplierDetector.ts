@@ -19,27 +19,50 @@ interface BrandMatch {
 }
 
 const MULTIVAC_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> = [
-  { re: /\bMULTIVAC\s+SEPP\s+HAGGENM/i, weight: 10, label: 'MULTIVAC Sepp Haggenmüller company name' },
-  { re: /\bSEPP\s+HAGGENM(?:Ü|UE|U)LLER\b/i, weight: 9, label: 'Sepp Haggenmüller company details' },
-  { re: /\bWOLFERTSCHWENDEN\b/i, weight: 8, label: 'Wolfertschwenden headquarters address' },
-  { re: /\bMULTIVAC\.DE\b/i, weight: 8, label: 'multivac.de domain' },
+  { re: /\bMULTIVAC\s+SERVICE\s+UND\s+LOGISTIK\s+GMBH(?:\s*&\s*CO\.?\s*KG)?\b/i, weight: 20, label: 'MULTIVAC Service und Logistik GmbH & Co. KG' },
+  { re: /\bMULTIVAC\s+SERVICE\s+UND\s+LOGISTIK\s+VERWALTUNGS\s+GMBH\b/i, weight: 16, label: 'MULTIVAC Service und Logistik Verwaltungs GmbH' },
+  { re: /\bMULTIVAC\s+SEPP\s+HAGGENM/i, weight: 16, label: 'MULTIVAC Sepp Haggenmüller company name' },
+  { re: /\bSEPP\s+HAGGENM(?:Ü|UE|U)LLER\b/i, weight: 12, label: 'Sepp Haggenmüller company details' },
+  { re: /\bDE\s*364\s*316\s*979\b/i, weight: 20, label: 'MULTIVAC VAT ID DE 364316979' },
+  { re: /\bGEWERBESTR(?:ASSE|AßE|\.)\s*15\b/i, weight: 15, label: 'Gewerbestraße 15 address' },
+  { re: /\b87787\s+WOLFERTSCHWENDEN\b/i, weight: 15, label: '87787 Wolfertschwenden address' },
+  { re: /\bWOLFERTSCHWENDEN\b/i, weight: 10, label: 'Wolfertschwenden headquarters address' },
+  { re: /\+?\s*49\s*(?:\(0\)|0)?\s*8334\s*601\s*[-–]?\s*0\b/, weight: 14, label: 'Telephone +49 (0) 8334 601-0' },
+  { re: /\+?\s*49\s*(?:\(0\)|0)?\s*8334\s*601\s*[-–]?\s*199\b/, weight: 14, label: 'Fax +49 (0) 8334 601-199' },
+  { re: /\bMUWO@MULTIVAC\.DE\b/i, weight: 18, label: 'Email muwo@multivac.de' },
+  { re: /\bSTEFAN\.KIRCHMANN@MULTIVAC\.DE\b/i, weight: 16, label: 'Contact email stefan.kirchmann@multivac.de' },
+  { re: /\b[A-Z0-9._%+-]+@MULTIVAC\.DE\b/i, weight: 10, label: 'multivac.de email' },
+  { re: /\bAMTSGERICHT\s+MEMMINGEN\b/i, weight: 14, label: 'Amtsgericht Memmingen commercial register' },
+  { re: /\bHRA\s*13980\b/i, weight: 15, label: 'Commercial register HRA 13980' },
+  { re: /\bDR\.?\s+CHRISTIAN\s+LAU\b/i, weight: 14, label: 'Managing director Dr. Christian Lau' },
+  { re: /\bDR\.?\s+JOHANNES\s+EPPLE\b/i, weight: 14, label: 'Managing director Dr. Johannes Epple' },
   { re: /\bYOUR\s+QUOTE\s+REQUEST\b/i, weight: 5, label: 'Multivac quote request header' },
   { re: /\bPOS\.?\s*10\b[\s\S]{0,800}\bINVOICE\s+AMOUNT\b/i, weight: 8, label: 'Multivac Pos. 10 / Invoice amount layout' },
   { re: /\bLIST\s+PRICE\b[\s\S]{0,600}\bINVOICE\s+AMOUNT\b/i, weight: 6, label: 'Multivac List price / Invoice amount layout' },
+  { re: /\bWWW\.MULTIVAC\.COM\b/i, weight: 3, label: 'www.multivac.com website' },
 ];
 
 const BIZERBA_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> = [
-  { re: /\bBIZERBA\s+(?:SE\s*&\s*CO|GMBH|SOUTHERN\s+AFRICA|SOUTH\s+AFRICA|\(PTY\)|PTY\s+LTD|INC|S\.A|LTD|LIMITED)/i, weight: 12, label: 'Bizerba legal entity name' },
-  { re: /\bWILHELM[- ]KRAUT[- ]STR/i, weight: 10, label: 'Bizerba Wilhelm-Kraut-Straße address' },
-  { re: /\bBIZERBA\.(?:COM|DE|CO\.ZA|FR|CO\.UK)\b/i, weight: 12, label: 'bizerba domain' },
+  { re: /\bBIZERBA\s+(?:SE\s*&\s*CO|GMBH|SOUTHERN\s+AFRICA|SOUTH\s+AFRICA|\(PTY\)|PTY\s+LTD|INC|S\.A|LTD|LIMITED)/i, weight: 15, label: 'Bizerba legal entity name' },
+  { re: /\bWILHELM[- ]KRAUT[- ]STR/i, weight: 12, label: 'Bizerba Wilhelm-Kraut-Straße address' },
+  { re: /\bBIZERBA\.(?:COM|DE|CO\.ZA|FR|CO\.UK)\b/i, weight: 14, label: 'bizerba domain' },
   { re: /\bBALINGEN\b/i, weight: 6, label: 'Balingen address' },
-  { re: /\bBIZERBA\b/i, weight: 10, label: 'BIZERBA name/logo text' },
-  { re: /\bB\s+I\s+Z\s+E\s+R\s+B\s+A\b/i, weight: 10, label: 'BIZERBA spaced header text' },
+  { re: /\bBIZERBA\b/i, weight: 12, label: 'BIZERBA name/logo text' },
+  { re: /\bB\s+I\s+Z\s+E\s+R\s+B\s+A\b/i, weight: 12, label: 'BIZERBA spaced header text' },
 ];
 
 const HANDTMANN_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> = [
-  { re: /\bALBERT\s+HANDTMANN\b/i, weight: 14, label: 'Albert Handtmann company name' },
-  { re: /\bHANDTMANN\s+(?:MASCHINENFABRIK|ARMATURENFABRIK|SERVICE|GMBH|INC|SOUTHERN\s+AFRICA|SOUTH\s+AFRICA|\(PTY\)|PTY\s+LTD|LTD|LIMITED|PROCESS|PROCESSING|SOLUTIONS|AG|S\.A)/i, weight: 14, label: 'Handtmann legal entity name' },
+  // Primary Handtmann issuer in Southern Africa: MULTIVAC SOUTHERN AFRICA (Pty) Ltd & its company details
+  { re: /\bMULTIVAC\s+SOUTHERN\s+AFRICA(?:\s*\(PTY\)\s*LTD\.?|\s+PTY\s+LTD\.?)?\b/i, weight: 20, label: 'MULTIVAC SOUTHERN AFRICA (Pty) Ltd' },
+  { re: /\b477\s*021\s*7620\b/, weight: 20, label: 'VAT Registration Number 4770217620' },
+  { re: /\bPOSTNET\s+SUITE\s+514\b/i, weight: 15, label: 'PostNet Suite 514 postal address' },
+  { re: /\bPRIVATE\s+BAG\s+H\s*607\b/i, weight: 15, label: 'Private Bag H607 postal address' },
+  { re: /\bHEIDELBERG\s*,?\s*1438\b/i, weight: 14, label: 'Heidelberg, 1438 postal address' },
+  { re: /(?:\+?\s*27\s*(?:\(0\)|0)?\s*16|\b016)\s*340\s*5800\b/, weight: 15, label: 'Telephone +27 (0) 16 340 5800' },
+  { re: /(?:\+?\s*27\s*(?:\(0\)|0)?\s*16|\b016)\s*340\s*5819\b/, weight: 15, label: 'Fax +27 (0) 16 340 5819' },
+  // Direct Handtmann identifiers
+  { re: /\bALBERT\s+HANDTMANN\b/i, weight: 16, label: 'Albert Handtmann company name' },
+  { re: /\bHANDTMANN\s+(?:MASCHINENFABRIK|ARMATURENFABRIK|SERVICE|GMBH|INC|SOUTHERN\s+AFRICA|SOUTH\s+AFRICA|\(PTY\)|PTY\s+LTD|LTD|LIMITED|PROCESS|PROCESSING|SOLUTIONS|AG|S\.A)/i, weight: 16, label: 'Handtmann legal entity name' },
   { re: /\bHUBERTUS[- ]LIEBRECHT[- ]STR/i, weight: 12, label: 'Handtmann Hubertus-Liebrecht-Straße address' },
   { re: /\bHANDTMANN\.(?:DE|COM|CO\.ZA|CO\.UK|FR|AT|CH|NL|IT|ES)\b/i, weight: 14, label: 'handtmann domain' },
   { re: /\bBIBERACH\b/i, weight: 7, label: 'Biberach address' },
@@ -124,23 +147,12 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
     /\bDescription\b/i.test(text) &&
     /\bQuantity\b/i.test(text) &&
     /\bNet\s+Price\b/i.test(text) &&
-    bizerba.score === 0;
+    bizerba.score === 0 &&
+    multivac.score < 10;
 
   if (hasHandtmannColumns) {
     handtmann.score += 12;
     handtmann.signals.push('Handtmann quotation columns (Code, Description, Quantity, Net Price)');
-  }
-
-  // In Southern Africa, Multivac Southern Africa is the official Handtmann distributor (quoting in ZAR with Code / Net Price)
-  const isSouthernAfricaZarQuote =
-    (/\bMULTIVAC\s+SOUTHERN\s+AFRICA\b/i.test(text) || /\bMULTIVAC\.CO\.ZA\b/i.test(text)) &&
-    (/\bZAR\b/i.test(text) || /\bCode\b/i.test(text) || /\bNet\s+Price\b/i.test(text)) &&
-    bizerba.score === 0 &&
-    !thirdPartyName;
-
-  if (isSouthernAfricaZarQuote) {
-    handtmann.score += 10;
-    handtmann.signals.push('Southern Africa Handtmann quotation format');
   }
 
   // Bizerba uses: Item | Description | Qty | Net Price
@@ -157,38 +169,50 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
     bizerba.signals.push('Bizerba quotation columns (Item, Description, Qty, Net Price)');
   }
 
-  // Only award generic MULTIVAC name points when neither Handtmann nor Bizerba nor a 3rd-party entity is present,
-  // and the document is not a ZAR / Southern Africa third-party quotation.
-  if (
-    /\bMULTIVAC\b/i.test(text) &&
-    handtmann.score === 0 &&
-    bizerba.score === 0 &&
-    !thirdPartyName &&
-    !/\bZAR\b/i.test(text) &&
-    !/\bMULTIVAC\s+SOUTHERN\s+AFRICA\b/i.test(text) &&
-    !/\bMULTIVAC\.CO\.ZA\b/i.test(text)
-  ) {
-    multivac.score += 4;
-    multivac.signals.push('MULTIVAC name/logo text');
+  // Priority 1: Explicit Bizerba identification (in case MULTIVAC SOUTHERN AFRICA is the customer on a Bizerba quote)
+  const hasExplicitBizerbaBrand = /\bBIZERBA\b/i.test(text) || /\bB\s+I\s+Z\s+E\s+R\s+B\s+A\b/i.test(text);
+  const hasExplicitHandtmannBrand =
+    /\bHANDTMANN\b/i.test(text) ||
+    /\bH\s+A\s+N\s+D\s+T\s+M\s+A\s+N\s+N\b/i.test(text) ||
+    /\b477\s*021\s*7620\b/.test(text) ||
+    /\bPOSTNET\s+SUITE\s+514\b/i.test(text) ||
+    /\bPRIVATE\s+BAG\s+H\s*607\b/i.test(text);
+
+  if (hasExplicitBizerbaBrand && !hasExplicitHandtmannBrand && bizerba.score >= 10) {
+    return {
+      supplier: 'bizerba',
+      confidence: 'high',
+      detectedName: 'Bizerba',
+      reason: `Identified Bizerba from document content (${bizerba.signals.slice(0, 2).join(', ')}).`,
+    };
   }
 
-  // Priority 1: Handtmann and Bizerba always take precedence over Multivac
-  // (because Multivac is the buyer/customer or Southern African agent on Handtmann and Bizerba quotations).
-  if (handtmann.score >= 6 && bizerba.score >= 6) {
-    if (Math.abs(handtmann.score - bizerba.score) < 4) {
-      return {
-        supplier: 'uncertain',
-        confidence: 'low',
-        detectedName: null,
-        reason: 'Multiple supplier names (Handtmann and Bizerba) appear in the document.',
-      };
-    }
-    const winner = handtmann.score > bizerba.score ? handtmann : bizerba;
+  // Priority 2: Handtmann (including MULTIVAC SOUTHERN AFRICA (Pty) Ltd, VAT 4770217620, Heidelberg address, or Handtmann brand/columns)
+  if (handtmann.score >= 10 && handtmann.score >= multivac.score) {
     return {
-      supplier: winner.supplier,
+      supplier: 'handtmann',
       confidence: 'high',
-      detectedName: winner.label,
-      reason: `Identified ${winner.label} from document content (${winner.signals.slice(0, 2).join(', ')}).`,
+      detectedName: 'Handtmann',
+      reason: `Identified Handtmann from company details (${handtmann.signals.slice(0, 2).join(', ')}).`,
+    };
+  }
+
+  // Priority 3: MULTIVAC (MULTIVAC Service und Logistik GmbH & Co. KG, Wolfertschwenden, DE 364316979, HRA 13980, etc.)
+  if (multivac.score >= 10 && handtmann.score < 10 && bizerba.score < 10 && !thirdPartyName) {
+    return {
+      supplier: 'multivac',
+      confidence: 'high',
+      detectedName: 'Multivac',
+      reason: `Identified Multivac from company details (${multivac.signals.slice(0, 2).join(', ')}).`,
+    };
+  }
+
+  if (bizerba.score >= 10) {
+    return {
+      supplier: 'bizerba',
+      confidence: 'high',
+      detectedName: 'Bizerba',
+      reason: `Identified Bizerba from document content (${bizerba.signals.slice(0, 2).join(', ')}).`,
     };
   }
 
@@ -198,30 +222,6 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
       confidence: 'high',
       detectedName: 'Handtmann',
       reason: `Identified Handtmann from document content (${handtmann.signals.slice(0, 2).join(', ')}).`,
-    };
-  }
-
-  if (bizerba.score >= 6) {
-    return {
-      supplier: 'bizerba',
-      confidence: 'high',
-      detectedName: 'Bizerba',
-      reason: `Identified Bizerba from document content (${bizerba.signals.slice(0, 2).join(', ')}).`,
-    };
-  }
-
-  // Priority 2: Multivac factory quotation (Quotation_MUWO)
-  if (multivac.score >= 6 && !thirdPartyName) {
-    const hasMultivacLayout =
-      /\bPOS\.?\s*10\b/i.test(text) ||
-      /\bINVOICE\s+AMOUNT\b/i.test(text) ||
-      /\bYOUR\s+QUOTE\s+REQUEST\b/i.test(text) ||
-      /\bLIST\s+PRICE\b/i.test(text);
-    return {
-      supplier: 'multivac',
-      confidence: hasMultivacLayout ? 'high' : 'medium',
-      detectedName: 'Multivac',
-      reason: `Identified Multivac from document content (${multivac.signals.slice(0, 2).join(', ')}).`,
     };
   }
 

@@ -313,47 +313,79 @@ const SUPPLIER_DETECTION_SCHEMA = {
   required: ['supplier', 'confidence', 'detectedName', 'reason'],
 };
 
-export const SUPPLIER_DETECTION_PROMPT = `You are a specialist document classifier for a MULTIVAC Purchase Order application.
-Inspect the attached quotation PDF (including company name, logo, header, footer, legal entity details, address, website/email domain, currency, and table column layout) to classify the quotation into one of four supplier categories: "multivac", "bizerba", "handtmann", or "other" (or "uncertain").
+export const SUPPLIER_DETECTION_PROMPT = `You are a specialist document classifier for a Purchase Order application.
+Inspect the attached quotation PDF (including company name, VAT registration number, postal/street address, telephone/fax numbers, email, commercial register, managing directors, logo, and table layout) to classify the quotation into one of four supplier categories: "handtmann", "multivac", "bizerba", or "other" (or "uncertain").
 
-CRITICAL DOMAIN CONTEXT:
-1. The buyer/user operating this application is MULTIVAC (specifically Multivac Mauritius / Multivac Southern Africa). Because MULTIVAC is the BUYER/CUSTOMER on third-party quotations — and MULTIVAC Southern Africa is also the official Southern African distributor/agent for HANDTMANN — the name "MULTIVAC", "Multivac Southern Africa", or "@multivac.co.za" / "@multivac.com" frequently appears on HANDTMANN, BIZERBA, and OTHER supplier quotations!
-2. NEVER classify a document as "multivac" merely because "MULTIVAC" or "Multivac Southern Africa" appears as the customer/recipient, or on a South African (ZAR) quotation for Handtmann parts.
+CRITICAL RULE — DISTINGUISHING HANDTMANN FROM MULTIVAC:
+Both Handtmann and Multivac quotations can contain the word "MULTIVAC" in their company details. You MUST NOT classify a document as "multivac" based only on the presence of the word "MULTIVAC". Always check the specific company identity, VAT registration number, and address below:
 
-CLASSIFICATION RULES & PRIORITY:
+1. "handtmann" (HANDTMANN Category — Issued by MULTIVAC SOUTHERN AFRICA (Pty) Ltd or Handtmann):
+   Classify as supplier: "handtmann", confidence: "high", detectedName: "Handtmann" when the document matches ANY of these Handtmann company identifiers:
+   - Company name: MULTIVAC SOUTHERN AFRICA (Pty) Ltd
+   - VAT Registration Number: 4770217620
+   - Postal address: PostNet Suite 514, Private Bag H607, Heidelberg, 1438
+   - Telephone: +27 (0) 16 340 5800
+   - Fax: +27 (0) 16 340 5819
+   - OR direct Handtmann identifiers (Albert Handtmann, Handtmann Maschinenfabrik, Biberach, handtmann.de, HANDTMANN, or Handtmann table columns: Code, Description, Quantity, Net Price).
+   IMPORTANT: Whenever the issuing company is MULTIVAC SOUTHERN AFRICA (Pty) Ltd or VAT Registration Number 4770217620 is present, the document MUST be classified as "handtmann", NEVER "multivac".
 
-1. "handtmann" (HANDTMANN Quotation — TAKES STRICT PRIORITY OVER MULTIVAC):
-   Classify as "handtmann" (confidence: "high", detectedName: "Handtmann") if ANY of the following is true:
-   - The name or logo "HANDTMANN" (e.g., Handtmann, Albert Handtmann, Handtmann Maschinenfabrik, Handtmann Armaturenfabrik, Handtmann Service, handtmann.de, handtmann.com, Biberach) appears ANYWHERE in the document (header, logo, footer, title, vendor details, bank/email details, machine reference, or item descriptions).
-   - OR the quotation item table uses the Handtmann column headers: "Code", "Description", "Quantity", and "Net Price" (where Net Price is the line total, typically in ZAR), and the document is not from Bizerba.
-   - OR the quotation is a South African (ZAR) quotation (including quotes on Multivac Southern Africa letterhead/details) for Handtmann spare parts/equipment or using the "Code" | "Description" | "Quantity" | "Net Price" table layout.
-   - IMPORTANT: Whenever the document has both "MULTIVAC" (e.g. as customer or Southern African agent) and "HANDTMANN" (or the Handtmann "Code / Description / Quantity / Net Price" table layout), you MUST return supplier: "handtmann", NEVER "multivac".
+2. "multivac" (MULTIVAC Category — Issued by MULTIVAC Service und Logistik GmbH & Co. KG in Germany):
+   Classify as supplier: "multivac", confidence: "high", detectedName: "Multivac" when the document matches these German Multivac company identifiers:
+   - Company name: MULTIVAC Service und Logistik GmbH & Co. KG (or MULTIVAC Sepp Haggenmüller SE & Co. KG)
+   - Address: Gewerbestraße 15, 87787 Wolfertschwenden, Germany
+   - Telephone: +49 (0) 8334 601-0
+   - Fax: +49 (0) 8334 601-199
+   - Email: muwo@multivac.de or stefan.kirchmann@multivac.de
+   - Website: www.multivac.com (when accompanied by the German Wolfertschwenden / MULTIVAC Service und Logistik details)
+   - VAT ID: DE 364316979
+   - Commercial register: Amtsgericht Memmingen, HRA 13980
+   - Personally liable partner: MULTIVAC Service und Logistik Verwaltungs GmbH
+   - Managing directors: Dr. Christian Lau, Dr. Johannes Epple
 
-2. "bizerba" (BIZERBA Quotation — TAKES STRICT PRIORITY OVER MULTIVAC):
-   Classify as "bizerba" (confidence: "high", detectedName: "Bizerba") if:
-   - The name or logo "BIZERBA" (e.g., Bizerba SE & Co. KG, Bizerba Southern Africa (Pty) Ltd, Balingen, Wilhelm-Kraut-Straße, bizerba.com, bizerba.de, bizerba.co.za) appears in the document, OR the table uses Bizerba's "Item", "Description", "Qty", "Net Price" layout.
-   - Even if "MULTIVAC" appears as the customer/recipient, classify as "bizerba".
+3. "bizerba" (BIZERBA Category):
+   Classify as supplier: "bizerba", confidence: "high", detectedName: "Bizerba" when the document is issued by BIZERBA (e.g., Bizerba SE & Co. KG, Bizerba Southern Africa (Pty) Ltd, Balingen, Wilhelm-Kraut-Straße, bizerba.com, bizerba.co.za).
 
-3. "multivac" (MULTIVAC Factory Quotation — Quotation_MUWO):
-   Classify as "multivac" (confidence: "high", detectedName: "Multivac") ONLY when:
-   - The quotation is issued by MULTIVAC Factory in Germany (MULTIVAC Sepp Haggenmüller SE & Co. KG, Wolfertschwenden, Germany) in EUR (or uses the standard Multivac factory quotation layout: "Document" number at top, "Your quote request", line positions "Pos. 10, 20, 30...", "List price", discount %, per-unit "Net price", and "Invoice amount"),
-   - AND the document does NOT mention Handtmann or Bizerba, and does NOT use the Handtmann ("Code", "Description", "Quantity", "Net Price") or Bizerba ("Item", "Description", "Qty", "Net Price") table headers.
-
-4. "other" (Other Third-Party Supplier Quotation):
-   Classify as "other" (confidence: "high", detectedName: "<Actual Issuing Supplier Name>") when:
-   - The quotation is issued by any other clearly identifiable supplier company that is NOT Multivac, NOT Bizerba, and NOT Handtmann (even if the quotation is addressed to Multivac as the customer/buyer).
+4. "other" (Others Category):
+   Classify as supplier: "other", confidence: "high", detectedName: "<Actual Issuing Company Name>" when the quotation is issued by any other clearly identifiable supplier company that is NOT MULTIVAC Service und Logistik GmbH & Co. KG, NOT MULTIVAC SOUTHERN AFRICA (Pty) Ltd / Handtmann, and NOT Bizerba.
 
 5. "uncertain":
-   - Use ONLY if the document does not contain enough reliable information to confidently identify the supplier. Never guess.`;
+   If the document does not contain sufficient identifying information to determine the supplier confidently, return supplier: "uncertain" and confidence: "low". Never guess.`;
 
 const VALID_DETECTED_SUPPLIERS: DetectedSupplierCategory[] = ['multivac', 'bizerba', 'handtmann', 'other', 'uncertain'];
 
 export async function runSupplierDetection(generate: Generate): Promise<SupplierDetectionResult> {
   const raw = await generate(SUPPLIER_DETECTION_PROMPT, SUPPLIER_DETECTION_SCHEMA);
   const parsed = JSON.parse(raw || '{}');
-  const supplier: DetectedSupplierCategory = VALID_DETECTED_SUPPLIERS.includes(parsed?.supplier)
+  let supplier: DetectedSupplierCategory = VALID_DETECTED_SUPPLIERS.includes(parsed?.supplier)
     ? parsed.supplier
     : 'uncertain';
+  let detectedName = typeof parsed?.detectedName === 'string' && parsed.detectedName.trim() ? parsed.detectedName.trim() : null;
+  const reason = typeof parsed?.reason === 'string' && parsed.reason.trim() ? parsed.reason.trim() : 'Analyzed PDF document content.';
+
+  // Deterministic safeguard: if the model's detectedName or reason cites MULTIVAC SOUTHERN AFRICA (Pty) Ltd
+  // or its VAT/address/phone identifiers, always classify as Handtmann.
+  const combinedEvidence = `${detectedName ?? ''} ${reason}`;
+  if (
+    /\bMULTIVAC\s+SOUTHERN\s+AFRICA\b/i.test(combinedEvidence) ||
+    /\b477\s*021\s*7620\b/.test(combinedEvidence) ||
+    /\bPOSTNET\s+SUITE\s+514\b/i.test(combinedEvidence) ||
+    /\bPRIVATE\s+BAG\s+H\s*607\b/i.test(combinedEvidence) ||
+    /\bHEIDELBERG\s*,?\s*1438\b/i.test(combinedEvidence) ||
+    /(?:\+?\s*27\s*(?:\(0\)|0)?\s*16|\b016)\s*340\s*58(?:00|19)\b/.test(combinedEvidence)
+  ) {
+    supplier = 'handtmann';
+    detectedName = 'Handtmann';
+  } else if (
+    /\bMULTIVAC\s+SERVICE\s+UND\s+LOGISTIK\b/i.test(combinedEvidence) ||
+    /\bDE\s*364\s*316\s*979\b/i.test(combinedEvidence) ||
+    /\bHRA\s*13980\b/i.test(combinedEvidence) ||
+    /\bMUWO@MULTIVAC\.DE\b/i.test(combinedEvidence) ||
+    /\bSTEFAN\.KIRCHMANN@MULTIVAC\.DE\b/i.test(combinedEvidence)
+  ) {
+    supplier = 'multivac';
+    detectedName = 'Multivac';
+  }
+
   const confidence: 'high' | 'medium' | 'low' =
     supplier === 'uncertain'
       ? 'low'
@@ -362,9 +394,9 @@ export async function runSupplierDetection(generate: Generate): Promise<Supplier
         : 'high';
   return {
     supplier,
-    confidence,
-    detectedName: typeof parsed?.detectedName === 'string' && parsed.detectedName.trim() ? parsed.detectedName.trim() : null,
-    reason: typeof parsed?.reason === 'string' && parsed.reason.trim() ? parsed.reason.trim() : 'Analyzed PDF document content.',
+    confidence: supplier === 'handtmann' || supplier === 'multivac' ? 'high' : confidence,
+    detectedName,
+    reason,
   };
 }
 
@@ -372,9 +404,12 @@ export async function detectSupplierFromPdf(pdfBase64: string, apiKey?: string):
   const bytes = Uint8Array.from(Buffer.from(pdfBase64, 'base64'));
   const local = await detectSupplierFromPdfBytes(bytes);
 
-  // If local byte extraction deterministically identified Handtmann or Bizerba with high confidence,
-  // return it immediately — Handtmann and Bizerba never appear as buyer names.
-  if ((local.supplier === 'handtmann' || local.supplier === 'bizerba') && local.confidence === 'high') {
+  // If local byte extraction deterministically identified Handtmann, Bizerba, or Multivac via specific company/VAT details,
+  // return it immediately.
+  if (
+    (local.supplier === 'handtmann' || local.supplier === 'bizerba' || local.supplier === 'multivac') &&
+    local.confidence === 'high'
+  ) {
     return local;
   }
 
@@ -407,4 +442,5 @@ export async function detectSupplierFromPdf(pdfBase64: string, apiKey?: string):
     throw err;
   }
 }
+
 
