@@ -77,17 +77,23 @@ const HANDTMANN_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> =
 ];
 
 const LEGAL_ENTITY_RE =
-  /\b([A-Z][A-Za-z0-9&.,' -]{2,60}?\s+(?:GmbH(?:\s*&\s*Co\.?\s*KG)?|\(Pty\)\s*Ltd\.?|Pty\s+Ltd\.?|Ltd\.?|Limited|Inc\.?|Incorporated|Corp\.?|Corporation|S\.A\.?(?:R\.L\.?)?|S\.r\.l\.?|B\.V\.?|N\.V\.?|AG|SE\s*&\s*Co\.?\s*KG|PLC|LLC))\b/g;
+  /\b([A-Z][A-Za-z0-9&.'’-]*(?:\s+[A-Za-z0-9&.,'’()-]+){0,5}\s+(?:GmbH(?:\s*&\s*Co\.?\s*(?:KG|OHG))?|\(Pty\)\s*Ltd\.?|Pty\s+Ltd\.?|Ltd\.?|Limited|Inc\.?|Incorporated|Corp\.?|Corporation|Co\.?\s*,\s*Ltd\.?|S\.A\.?(?:R\.L\.?|S\.?)?|S\.r\.l\.?|S\.p\.A\.?|S\.L\.?|B\.V\.?|N\.V\.?|AG|SE(?:\s*&\s*Co\.?\s*KG)?|PLC|LLC|LLP|Kft\.?|Sp\.\s*z\s*o\.o\.?|ApS|A\/S|AB|Oy))(?=$|[\s,.;:)!\]])/gi;
 
-const EXPLICIT_SUPPLIER_HEADER_RE = /\b(?:Supplier|Vendor|Issued\s+by)\s*:\s*([A-Z][A-Za-z0-9&.,' ()-]{2,60})/i;
+const EXPLICIT_SUPPLIER_HEADER_RE = /\b(?:Supplier|Vendor|Issued\s+by|Seller)\s*:\s*([A-Z][A-Za-z0-9&.,' ()-]{2,60})/i;
 
 const QUOTATION_KEYWORDS_RE =
-  /\b(?:Quotation|Quote|Offer|Angebot|Devis|Proforma|Estimate|Order\s+Confirmation|Unit\s+Price|Net\s+Price|Quantity|Qty|Description|Reference|Code|Part\s+No|Item\s+No|Total)\b/gi;
+  /\b(?:Quotation|Quote|Offer|Angebot|Devis|Proforma|Estimate|Invoice|Order|Proposal|Tender|RFQ|Price|Preis|Prix|Amount|Betrag|Montant|Subtotal|Sub-Total|Total|Summe|Quantity|Qty|Menge|Description|Bezeichnung|Designation|Reference|Ref|Code|Part|Item|Pos|Position|Article|Artikel|Material|Unit|Net|Gross|VAT|Tax|MwSt|TVA|Discount|Rabatt|Delivery|Payment|Terms|Currency|EUR|ZAR|USD|GBP|CHF|MUR)\b/gi;
 
-const BUYER_IGNORE_RE = /\b(?:Customer|Bill\s+To|Ship\s+To|Sold\s+To|Deliver\s+To|Recipient|Buyer)\b/i;
+const BUYER_IGNORE_RE = /\b(?:Customer|Client|Bill\s+To|Ship\s+To|Sold\s+To|Deliver\s+To|Delivery\s+To|Recipient|Buyer|Consignee)\b/i;
+
+const PRECEDING_NON_SUPPLIER_LABEL_RE =
+  /(?:Customer|Client|Bill\s+To|Ship\s+To|Sold\s+To|Deliver\s+To|Delivery\s+To|Recipient|Buyer|Consignee|Producer|Creator|Author|Bank)\s*:?\s*$/i;
+
+const LEADING_HEADER_NOISE_RE =
+  /^(?:(?:Quotation|Quote|Offer|Angebot|Devis|Proforma|Estimate|Invoice|Order|Page|Date|Datum|Document|Doc|Number|No\.?|Ref\.?|Reference|Item|Code|Total|Net|Unit|Price|Quantity|Qty|Description|Pos\.?|Currency|Tel\.?|Telephone|Phone|Fax|Email|E-Mail|VAT|Tax|Reg\.?|From|Issued\s+by|Supplier|Vendor|Seller|To|M\/s|[A-Z0-9]*\d[A-Z0-9#:/.-]*|[#:/.-]+)\s+)+/i;
 
 const NON_SUPPLIER_ENTITY_IGNORE_RE =
-  /multivac|bizerba|handtmann|service\s+und\s+logistik|verwaltungs\s+gmbh|haggenm|wolfertschwenden|memmingen|balingen|biberach|heidelberg|adobe|microsoft|linotype|monotype|heidelberger\s+druck|foxit|kofax|canon\b|ricoh\b|xerox\b|hewlett|urw\b|sap\s+(?:se|ag)\b|bank\b|sparkasse|commerzbank|unicredit|landesbank/i;
+  /multivac|bizerba|handtmann|service\s+und\s+logistik|verwaltungs\s+gmbh|haggenm|wolfertschwenden|memmingen|balingen|biberach|heidelberg|adobe|microsoft|linotype|monotype|heidelberger\s+druck|foxit|kofax|canon\b|ricoh\b|xerox\b|hewlett|urw\b|sap\s+(?:se|ag)\b|bank\b|sparkasse|commerzbank|unicredit|landesbank|nedbank|standard\s+bank|firststrand|absa\b|fnb\b|capitec|investec|hsbc|barclays|citibank|deutsche\s+bank/i;
 
 function scoreBrand(
   text: string,
@@ -110,17 +116,29 @@ function findThirdPartyEntity(text: string): string | null {
   const explicitMatch = EXPLICIT_SUPPLIER_HEADER_RE.exec(text);
   if (explicitMatch?.[1]) {
     const candidate = explicitMatch[1].trim();
-    if (!NON_SUPPLIER_ENTITY_IGNORE_RE.test(candidate)) {
+    if (!NON_SUPPLIER_ENTITY_IGNORE_RE.test(candidate) && !BUYER_IGNORE_RE.test(candidate)) {
       return candidate;
     }
   }
 
+  // Replace buyer/customer mentions of known brands (e.g. "Customer: MULTIVAC") with a hard delimiter ";" so multi-word matching cannot cross them
+  const cleanedText = text.replace(
+    /\b(?:Customer|Client|Bill\s+To|Ship\s+To|Sold\s+To|Deliver\s+To|Delivery\s+To|Recipient|Buyer|Consignee)\s*:?\s*(?:MULTIVAC|BIZERBA|HANDTMANN)\b(?![\s,]*(?:\(Pty\)|Pty\b|GmbH\b|SE\b|Service\s+und\s+Logistik|Southern\s+Africa))/gi,
+    ' ; ',
+  );
+
   let m: RegExpExecArray | null;
   LEGAL_ENTITY_RE.lastIndex = 0;
-  while ((m = LEGAL_ENTITY_RE.exec(text)) !== null) {
-    const candidate = m[1].trim();
-    if (NON_SUPPLIER_ENTITY_IGNORE_RE.test(candidate)) continue;
+  while ((m = LEGAL_ENTITY_RE.exec(cleanedText)) !== null) {
+    const prefixStart = Math.max(0, m.index - 40);
+    const preceding = cleanedText.slice(prefixStart, m.index);
+    if (PRECEDING_NON_SUPPLIER_LABEL_RE.test(preceding)) continue;
+
+    let candidate = m[1].trim();
     if (BUYER_IGNORE_RE.test(candidate)) continue;
+    candidate = candidate.replace(LEADING_HEADER_NOISE_RE, '').replace(/\s+/g, ' ').trim();
+    if (!candidate || candidate.length < 4) continue;
+    if (NON_SUPPLIER_ENTITY_IGNORE_RE.test(candidate)) continue;
     if (/^(?:Page|Item|Code|Total|Net\s+Price|Unit\s+Price|Quantity|Description|Pos|Document|Date|Currency)\b/i.test(candidate)) continue;
     return candidate;
   }
@@ -155,8 +173,10 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
     /\bDescription\b/i.test(text) &&
     /\bQuantity\b/i.test(text) &&
     /\bNet\s+Price\b/i.test(text) &&
+    handtmann.score > 0 &&
     bizerba.score === 0 &&
-    multivac.score < 10;
+    multivac.score < 10 &&
+    !thirdPartyName;
 
   if (hasHandtmannColumns) {
     handtmann.score += 12;
@@ -169,6 +189,7 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
     /\bDescription\b/i.test(text) &&
     /\bQty\b/i.test(text) &&
     /\bNet\s+Price\b/i.test(text) &&
+    bizerba.score > 0 &&
     handtmann.score === 0 &&
     multivac.score < 10 &&
     !thirdPartyName;
@@ -257,16 +278,29 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
     };
   }
 
-  // Priority 5: Clearly identifiable third-party ("Others") quotation
+  // Priority 5: Efficiently classify as "Others" once confirmed NOT to be Multivac, Bizerba, or Handtmann
   const quoteKeywordMatches = text.match(QUOTATION_KEYWORDS_RE) || [];
-  const hasQuoteStructure = quoteKeywordMatches.length >= 2;
+  const distinctQuoteKeywords = new Set(quoteKeywordMatches.map((k) => k.toLowerCase()));
+  const hasDecimalPrice = /\b\d+[.,]\d{2}\b/.test(text);
 
-  if (thirdPartyName && hasQuoteStructure) {
+  // Guard against bare ambiguous stubs like "MULTIVAC Quotation 12345" where "MULTIVAC" appears with no company details and no table structure
+  const hasBareAmbiguousMultivac =
+    /\bMULTIVAC\b/i.test(text) && !thirdPartyName && distinctQuoteKeywords.size < 3;
+
+  const hasQuoteStructure =
+    !hasBareAmbiguousMultivac &&
+    (distinctQuoteKeywords.size >= 2 ||
+      ( Boolean(thirdPartyName) && distinctQuoteKeywords.size >= 1 ) ||
+      ( distinctQuoteKeywords.size >= 1 && hasDecimalPrice && text.length >= 40 ));
+
+  if (hasQuoteStructure) {
     return {
       supplier: 'other',
       confidence: 'high',
       detectedName: thirdPartyName,
-      reason: `Identified third-party supplier "${thirdPartyName}" from the quotation document.`,
+      reason: thirdPartyName
+        ? `Identified third-party supplier "${thirdPartyName}" from the quotation document.`
+        : 'Document does not match Multivac, Bizerba, or Handtmann and is classified as Others.',
     };
   }
 
@@ -694,9 +728,11 @@ export async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string
   const parts: string[] = [];
   const cmaps: Array<Map<number, string>> = [];
 
-  parseToUnicodeCMap(rawLatin1, cmaps);
+  const nonStreamContent = rawLatin1.replace(/stream[\s\S]*?endstream/g, ' ');
+  parseToUnicodeCMap(nonStreamContent, cmaps);
 
   const inflatedStreams: string[] = [];
+  const uncompressedStreams: string[] = [];
   const streamRe = /(stream[ \t]*(?:\r\n|\r|\n))([\s\S]*?)((?:\r\n|\r|\n)?endstream)/g;
   let match: RegExpExecArray | null;
   let count = 0;
@@ -717,24 +753,32 @@ export async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string
     if (inflated) {
       parseToUnicodeCMap(inflated, cmaps);
       inflatedStreams.push(inflated);
+    } else if (!/\/Filter\s*(?:\/|\[\s*\/)FlateDecode/i.test(dictHeader)) {
+      parseToUnicodeCMap(match[2], cmaps);
+      uncompressedStreams.push(match[2]);
     }
   }
 
-  // Extract strings from uncompressed PDF content
-  parts.push(extractStringsFromStreamContent(rawLatin1, cmaps));
+  // Extract strings from non-stream PDF metadata/headers and uncompressed streams
+  const headerStrings = extractStringsFromStreamContent(nonStreamContent, cmaps);
+  if (headerStrings) parts.push(headerStrings);
 
-  // Also capture plain readable ASCII text when a test/simple PDF stores plain text directly
-  const plainText = rawLatin1
-    .replace(/stream[\s\S]*?endstream/g, ' ')
-    .replace(/[^\x20-\x7E\xC0-\xFF]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (plainText) parts.push(plainText);
+  for (const rawStream of uncompressedStreams) {
+    const extracted = extractStringsFromStreamContent(rawStream, cmaps);
+    if (extracted) parts.push(extracted);
+  }
 
   for (const inflated of inflatedStreams) {
     const extracted = extractStringsFromStreamContent(inflated, cmaps);
     if (extracted) parts.push(extracted);
   }
+
+  // Also capture plain readable ASCII text when a test/simple PDF stores plain text directly outside streams
+  const plainText = nonStreamContent
+    .replace(/[^\x20-\x7E\xC0-\xFF]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plainText) parts.push(plainText);
 
   const text = parts.join(' ').replace(/\s+/g, ' ').trim();
   const detection = detectSupplierFromText(text);

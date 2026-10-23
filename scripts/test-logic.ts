@@ -192,6 +192,24 @@ async function pipe(answers: RawExtraction[]) {
   const o = detectSupplierFromText('ULMA Packaging GmbH Customer: MULTIVAC Quotation No. 99412 Item Reference Description Unit Price Quantity Total');
   eq('detect Other supplier quotation', [o.supplier, o.confidence, o.detectedName], ['other', 'high', 'ULMA Packaging GmbH']);
 
+  // Others quotation WITHOUT any legal entity suffix (GmbH, (Pty) Ltd, etc.) must still detect Others locally with high confidence
+  const oNoLegalSuffix = detectSupplierFromText(
+    'Quotation No. QT-2026-884 Date: 15/03/2026 Sealed Air Packaging Solutions Reference Description Quantity Unit Price Total EUR 10045 Vacuum Pouch 500 0.45 225.00',
+  );
+  eq('detect Other supplier quotation without legal entity suffix', [oNoLegalSuffix.supplier, oNoLegalSuffix.confidence], ['other', 'high']);
+
+  // Others quotation with ALL-CAPS company name and preceding header/customer labels on collapsed line
+  const oAllCapsWithCustomer = detectSupplierFromText(
+    'Date: 2026-03-15 Quotation No: Q-991 Customer: MULTIVAC ACME INDUSTRIAL SUPPLIES (PTY) LTD Part Description Qty Unit Price Total ZAR 1250.00',
+  );
+  eq('detect Other supplier quotation with ALL-CAPS (PTY) LTD and preceding Customer: MULTIVAC', [oAllCapsWithCustomer.supplier, oAllCapsWithCustomer.confidence, oAllCapsWithCustomer.detectedName], ['other', 'high', 'ACME INDUSTRIAL SUPPLIES (PTY) LTD']);
+
+  // Others quotation using generic "Code Description Quantity Net Price" or "Item Description Qty Net Price" columns without Handtmann/Bizerba brand
+  const oWithGenericColumns = detectSupplierFromText(
+    'Quotation Q-7721 Date 12/03/2026 Item Code Description Quantity Qty Net Price Total EUR 450.00',
+  );
+  eq('detect Other supplier quotation when generic columns appear without Handtmann/Bizerba brand', [oWithGenericColumns.supplier, oWithGenericColumns.confidence], ['other', 'high']);
+
   const u = detectSupplierFromText('12345');
   eq('detect uncertain when insufficient text', [u.supplier, u.confidence], ['uncertain', 'low']);
 
