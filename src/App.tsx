@@ -18,7 +18,7 @@ import {
   type RawExtraction,
   type Working,
 } from './services/quotation';
-import { detectSupplierFromPdfBytes, type SupplierDetectionResult } from './services/supplierDetector';
+import { detectSupplierFromPdfBytesWithText, type SupplierDetectionResult } from './services/supplierDetector';
 
 type Phase = 'idle' | 'running' | 'clarify' | 'done' | 'error';
 type DetailsChoice = 'keep' | 'clear' | 'replace';
@@ -154,6 +154,7 @@ export default function App() {
   const [uncertainPrompt, setUncertainPrompt] = useState<UncertainPrompt | null>(null);
   const [confirmedSupplier, setConfirmedSupplier] = useState<PoMode | null>(null);
   const detectId = useRef(0);
+  const fileDetectionCacheRef = useRef<Map<string, SupplierDetectionResult>>(new Map());
   // clarification chat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<Issue | null>(null);
@@ -191,26 +192,35 @@ export default function App() {
     phase !== 'running';
 
   async function detectSupplierForFile(file: File): Promise<SupplierDetectionResult> {
+    const fileKey = `${file.name}:${file.size}:${file.lastModified || 0}`;
+    const cached = fileDetectionCacheRef.current.get(fileKey);
+    if (cached) {
+      return cached;
+    }
+
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const local = await detectSupplierFromPdfBytes(bytes);
-    if (
-      (local.supplier === 'multivac' || local.supplier === 'bizerba' || local.supplier === 'handtmann') &&
-      local.confidence === 'high'
-    ) {
+    const { text: extractedText, detection: local } = await detectSupplierFromPdfBytesWithText(bytes);
+
+    // When deterministic text analysis identifies any supplier category (Multivac, Bizerba, Handtmann, or Other)
+    // with high confidence, return immediately without making an external API request.
+    if (local.supplier !== 'uncertain' && local.confidence === 'high') {
+      fileDetectionCacheRef.current.set(fileKey, local);
       return local;
     }
+
     try {
       const pdfBase64 = await readBase64(file);
       const resp = await fetch('/api/detect-supplier', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pdfBase64 }),
+        body: JSON.stringify({ pdfBase64, extractedText }),
       });
       if (resp.ok) {
         const data = await resp.json();
         if (data?.success && data?.detection && typeof data.detection.supplier === 'string') {
           const remote = data.detection as SupplierDetectionResult;
           if (remote.supplier !== 'uncertain' && remote.confidence !== 'low') {
+            fileDetectionCacheRef.current.set(fileKey, remote);
             return remote;
           }
         }
@@ -218,6 +228,7 @@ export default function App() {
     } catch {
       // Fall back to local detection when server endpoint is unavailable
     }
+    fileDetectionCacheRef.current.set(fileKey, local);
     return local;
   }
 

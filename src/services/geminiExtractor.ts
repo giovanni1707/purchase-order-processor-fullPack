@@ -10,6 +10,7 @@ import {
 } from './quotation.js';
 import {
   detectSupplierFromPdfBytes,
+  detectSupplierFromText,
   type DetectedSupplierCategory,
   type SupplierDetectionResult,
 } from './supplierDetector.js';
@@ -423,16 +424,19 @@ export async function runSupplierDetection(generate: Generate): Promise<Supplier
   };
 }
 
-export async function detectSupplierFromPdf(pdfBase64: string, apiKey?: string): Promise<SupplierDetectionResult> {
-  const bytes = Uint8Array.from(Buffer.from(pdfBase64, 'base64'));
-  const local = await detectSupplierFromPdfBytes(bytes);
+export async function detectSupplierFromPdf(
+  pdfBase64: string,
+  apiKey?: string,
+  extractedText?: string,
+): Promise<SupplierDetectionResult> {
+  const local =
+    typeof extractedText === 'string'
+      ? detectSupplierFromText(extractedText)
+      : await detectSupplierFromPdfBytes(Uint8Array.from(Buffer.from(pdfBase64, 'base64')));
 
-  // If local byte extraction deterministically identified Handtmann, Bizerba, or Multivac via specific company/VAT details,
-  // return it immediately.
-  if (
-    (local.supplier === 'handtmann' || local.supplier === 'bizerba' || local.supplier === 'multivac') &&
-    local.confidence === 'high'
-  ) {
+  // If deterministic text analysis identified the supplier (Multivac, Bizerba, Handtmann, or Other) with high confidence,
+  // return it immediately without making an external API call.
+  if (local.supplier !== 'uncertain' && local.confidence === 'high') {
     return local;
   }
 
@@ -446,7 +450,12 @@ export async function detectSupplierFromPdf(pdfBase64: string, apiKey?: string):
       const res = await callGeminiWithRetry(ai, {
         model: 'gemini-3.8-flash',
         contents: [{ parts: [{ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }, { text: prompt }] }],
-        config: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 },
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: schema,
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
       return res.text || '{}';
     };

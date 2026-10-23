@@ -46,31 +46,33 @@ const MULTIVAC_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> = 
 ];
 
 const BIZERBA_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> = [
-  { re: /\bBIZERBA\s+(?:SE\s*&\s*CO|GMBH|SOUTHERN\s+AFRICA|SOUTH\s+AFRICA|\(PTY\)|PTY\s+LTD|INC|S\.A|LTD|LIMITED)/i, weight: 15, label: 'Bizerba legal entity name' },
-  { re: /\bWILHELM[- ]KRAUT[- ]STR/i, weight: 12, label: 'Bizerba Wilhelm-Kraut-Straße address' },
-  { re: /\bBIZERBA\.(?:COM|DE|CO\.ZA|FR|CO\.UK)\b/i, weight: 14, label: 'bizerba domain' },
-  { re: /\bBALINGEN\b/i, weight: 6, label: 'Balingen address' },
-  { re: /\bBIZERBA\b/i, weight: 12, label: 'BIZERBA name/logo text' },
+  { re: /BIZERBA\s*(?:SE\s*&\s*CO|GMBH|SOUTHERN\s*AFRICA|SOUTH\s*AFRICA|\(PTY\)|PTY\s*LTD|INC|S\.A|LTD|LIMITED)/i, weight: 18, label: 'Bizerba legal entity name' },
+  { re: /WILHELM[- ]*KRAUT[- ]*STR/i, weight: 15, label: 'Bizerba Wilhelm-Kraut-Straße address' },
+  { re: /BIZERBA\.(?:COM|DE|CO\.ZA|FR|CO\.UK)/i, weight: 16, label: 'bizerba domain' },
+  { re: /72336\s*BALINGEN/i, weight: 14, label: '72336 Balingen address' },
+  { re: /\bBALINGEN\b/i, weight: 8, label: 'Balingen address' },
+  { re: /BIZERBA/i, weight: 12, label: 'BIZERBA name/logo text' },
   { re: /\bB\s+I\s+Z\s+E\s+R\s+B\s+A\b/i, weight: 12, label: 'BIZERBA spaced header text' },
 ];
 
 const HANDTMANN_PATTERNS: Array<{ re: RegExp; weight: number; label: string }> = [
   // Primary Handtmann issuer in Southern Africa: MULTIVAC SOUTHERN AFRICA (Pty) Ltd & its company details
-  { re: /MULTIVAC\s*SOUTHERN\s*AFRICA(?:\s*\(PTY\)\s*LTD\.?|\s+PTY\s+LTD\.?)?/i, weight: 20, label: 'MULTIVAC SOUTHERN AFRICA (Pty) Ltd' },
-  { re: /\b477\s*021\s*7620\b/, weight: 20, label: 'VAT Registration Number 4770217620' },
-  { re: /POSTNET\s*SUITE\s*514/i, weight: 15, label: 'PostNet Suite 514 postal address' },
-  { re: /PRIVATE\s*BAG\s*H\s*607/i, weight: 15, label: 'Private Bag H607 postal address' },
-  { re: /HEIDELBERG\s*,?\s*1438\b/i, weight: 14, label: 'Heidelberg, 1438 postal address' },
-  { re: /(?:\+?\s*27\s*(?:\(\s*0\s*\)|0)?\s*16|\b016)\s*340\s*5800\b/, weight: 15, label: 'Telephone +27 (0) 16 340 5800' },
-  { re: /(?:\+?\s*27\s*(?:\(\s*0\s*\)|0)?\s*16|\b016)\s*340\s*5819\b/, weight: 15, label: 'Fax +27 (0) 16 340 5819' },
+  { re: /MULTIVAC\s*SOUTHERN\s*AFRICA(?:\s*\(PTY\)\s*LTD\.?|\s+PTY\s+LTD\.?)?/i, weight: 22, label: 'MULTIVAC SOUTHERN AFRICA (Pty) Ltd' },
+  { re: /477\s*021\s*7620/, weight: 22, label: 'VAT Registration Number 4770217620' },
+  { re: /POSTNET\s*SUITE\s*514/i, weight: 16, label: 'PostNet Suite 514 postal address' },
+  { re: /PRIVATE\s*BAG\s*H\s*607/i, weight: 16, label: 'Private Bag H607 postal address' },
+  { re: /HEIDELBERG\s*,?\s*1438/i, weight: 15, label: 'Heidelberg, 1438 postal address' },
+  { re: /(?:\+?\s*27\s*(?:\(\s*0\s*\)|0)?\s*16|\b016)\s*340\s*5800/, weight: 16, label: 'Telephone +27 (0) 16 340 5800' },
+  { re: /(?:\+?\s*27\s*(?:\(\s*0\s*\)|0)?\s*16|\b016)\s*340\s*5819/, weight: 16, label: 'Fax +27 (0) 16 340 5819' },
   // Direct Handtmann identifiers
-  { re: /\bALBERT\s+HANDTMANN\b/i, weight: 16, label: 'Albert Handtmann company name' },
-  { re: /\bHANDTMANN\s+(?:MASCHINENFABRIK|ARMATURENFABRIK|SERVICE|GMBH|INC|SOUTHERN\s+AFRICA|SOUTH\s+AFRICA|\(PTY\)|PTY\s+LTD|LTD|LIMITED|PROCESS|PROCESSING|SOLUTIONS|AG|S\.A)/i, weight: 16, label: 'Handtmann legal entity name' },
-  { re: /\bHUBERTUS[- ]LIEBRECHT[- ]STR/i, weight: 12, label: 'Handtmann Hubertus-Liebrecht-Straße address' },
-  { re: /\bHANDTMANN\.(?:DE|COM|CO\.ZA|CO\.UK|FR|AT|CH|NL|IT|ES)\b/i, weight: 14, label: 'handtmann domain' },
-  { re: /\bBIBERACH\b/i, weight: 7, label: 'Biberach address' },
-  { re: /\bHANDTMANN\b/i, weight: 12, label: 'HANDTMANN name/logo text' },
-  { re: /\bH\s+A\s+N\s+D\s+T\s+M\s+A\s+N\s+N\b/i, weight: 12, label: 'HANDTMANN spaced header text' },
+  { re: /ALBERT\s*HANDTMANN/i, weight: 18, label: 'Albert Handtmann company name' },
+  { re: /HANDTMANN\s*(?:MASCHINENFABRIK|ARMATURENFABRIK|SERVICE|GMBH|INC|SOUTHERN\s*AFRICA|SOUTH\s*AFRICA|\(PTY\)|PTY\s*LTD|LTD|LIMITED|PROCESS|PROCESSING|SOLUTIONS|AG|S\.A)/i, weight: 18, label: 'Handtmann legal entity name' },
+  { re: /HUBERTUS[- ]*LIEBRECHT[- ]*STR/i, weight: 14, label: 'Handtmann Hubertus-Liebrecht-Straße address' },
+  { re: /HANDTMANN\.(?:DE|COM|CO\.ZA|CO\.UK|FR|AT|CH|NL|IT|ES)/i, weight: 16, label: 'handtmann domain' },
+  { re: /88400\s*BIBERACH/i, weight: 14, label: '88400 Biberach address' },
+  { re: /\bBIBERACH\b/i, weight: 8, label: 'Biberach address' },
+  { re: /HANDTMANN/i, weight: 14, label: 'HANDTMANN name/logo text' },
+  { re: /\bH\s+A\s+N\s+D\s+T\s+M\s+A\s+N\s+N\b/i, weight: 14, label: 'HANDTMANN spaced header text' },
   { re: /\b(?:VF\s*(?:600|608|610|612|616|620|622|628|630|800|818|820|828|830|838|840|842)|PVLH\s*\d+|HVF\s*\d+|AL[- ]SYSTEM)\b/i, weight: 8, label: 'Handtmann machine model reference' },
 ];
 
@@ -177,11 +179,11 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
   }
 
   // Priority 1: Explicit Bizerba identification
-  const hasExplicitBizerbaBrand = /\bBIZERBA\b/i.test(text) || /\bB\s+I\s+Z\s+E\s+R\s+B\s+A\b/i.test(text);
+  const hasExplicitBizerbaBrand = /BIZERBA/i.test(text) || /\bB\s+I\s+Z\s+E\s+R\s+B\s+A\b/i.test(text);
   const hasExplicitHandtmannBrand =
-    /\bHANDTMANN\b/i.test(text) ||
+    /HANDTMANN/i.test(text) ||
     /\bH\s+A\s+N\s+D\s+T\s+M\s+A\s+N\s+N\b/i.test(text) ||
-    /\b477\s*021\s*7620\b/.test(text) ||
+    /477\s*021\s*7620/.test(text) ||
     /POSTNET\s*SUITE\s*514/i.test(text) ||
     /PRIVATE\s*BAG\s*H\s*607/i.test(text);
 
@@ -195,7 +197,6 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
   }
 
   // Priority 2: Explicit German MULTIVAC company identification (MULTIVAC Service und Logistik GmbH & Co. KG, DE 364316979, Wolfertschwenden, HRA 13980, muwo@multivac.de, etc.)
-  // Note: We NEVER block Multivac when thirdPartyName is non-null, because genuine Multivac quotations also contain customer company names or bank names.
   const hasExplicitGermanMultivac =
     /MULTIVAC\s*SERVICE\s*UND\s*LOGISTIK/i.test(text) ||
     /\bSERVICE\s+UND\s+LOGISTIK\s+(?:GMBH|VERWALTUNGS)/i.test(text) ||
@@ -279,40 +280,7 @@ export function detectSupplierFromText(rawText: string): SupplierDetectionResult
 
 // ------------------------------------------------ PDF byte stream text extractor
 
-function applyCMapToBytes(bytes: number[], cmap: Map<number, string>): string {
-  const outParts: string[] = [];
-
-  if (bytes.length >= 2 && bytes.length % 2 === 0) {
-    let cmapOut2 = '';
-    let mapped2 = 0;
-    for (let i = 0; i + 1 < bytes.length; i += 2) {
-      const cid = (bytes[i] << 8) | bytes[i + 1];
-      const mapped = cmap.get(cid);
-      if (mapped) {
-        cmapOut2 += mapped;
-        mapped2++;
-      }
-    }
-    if (mapped2 > 0) outParts.push(cmapOut2);
-  }
-
-  let cmapOut1 = '';
-  let mapped1 = 0;
-  for (let i = 0; i < bytes.length; i++) {
-    const mapped = cmap.get(bytes[i]);
-    if (mapped) {
-      cmapOut1 += mapped;
-      mapped1++;
-    }
-  }
-  if (mapped1 > 0 && mapped1 >= Math.ceil(bytes.length * 0.5)) {
-    outParts.push(cmapOut1);
-  }
-
-  return outParts.join(' ');
-}
-
-function decodePdfLiteralString(raw: string, cmaps?: Array<Map<number, string>>): string {
+function decodeLiteralToBytes(raw: string): number[] {
   const bytes: number[] = [];
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
@@ -335,66 +303,58 @@ function decodePdfLiteralString(raw: string, cmaps?: Array<Map<number, string>>)
       bytes.push(ch.charCodeAt(0) & 0xff);
     }
   }
-
-  let asciiOut = '';
-  for (const b of bytes) {
-    if ((b >= 32 && b <= 126) || (b >= 160 && b <= 255) || b === 9 || b === 10 || b === 13) {
-      asciiOut += String.fromCharCode(b);
-    }
-  }
-
-  if (cmaps && cmaps.length > 0 && bytes.length >= 1) {
-    const mappedVariants: string[] = [];
-    for (const cmap of cmaps) {
-      if (cmap.size === 0) continue;
-      const mapped = applyCMapToBytes(bytes, cmap);
-      if (mapped && mapped.length >= asciiOut.replace(/\s+/g, '').length) {
-        mappedVariants.push(mapped);
-      }
-    }
-    if (mappedVariants.length > 0) {
-      return asciiOut ? `${asciiOut} ${mappedVariants.join(' ')}` : mappedVariants.join(' ');
-    }
-  }
-
-  return asciiOut;
+  return bytes;
 }
 
-function decodePdfHexString(hex: string, cmaps?: Array<Map<number, string>>): string {
+function bytesToAscii(bytes: number[]): string {
+  if (bytes.length >= 4 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    let u16 = '';
+    for (let i = 2; i + 1 < bytes.length; i += 2) {
+      const code = (bytes[i] << 8) | bytes[i + 1];
+      if (code >= 32 && code <= 0xd7ff) u16 += String.fromCharCode(code);
+    }
+    return u16;
+  }
+  let out = '';
+  for (const b of bytes) {
+    if ((b >= 32 && b <= 126) || (b >= 160 && b <= 255) || b === 9 || b === 10 || b === 13) {
+      out += String.fromCharCode(b);
+    }
+  }
+  return out;
+}
+
+function decodeHexToBytes(hex: string): number[] {
   const clean = hex.replace(/\s+/g, '');
-  if (clean.length < 2) return '';
-  if (clean.toUpperCase().startsWith('FEFF')) {
-    let out = '';
-    for (let i = 4; i + 3 < clean.length; i += 4) {
-      const code = parseInt(clean.slice(i, i + 4), 16);
-      if (code >= 32 && code <= 0xd7ff) out += String.fromCharCode(code);
-    }
-    return out;
-  }
-
   const bytes: number[] = [];
-  let asciiOut = '';
   for (let i = 0; i + 1 < clean.length; i += 2) {
-    const code = parseInt(clean.slice(i, i + 2), 16);
-    bytes.push(code);
-    if ((code >= 32 && code <= 126) || (code >= 160 && code <= 255)) {
-      asciiOut += String.fromCharCode(code);
+    bytes.push(parseInt(clean.slice(i, i + 2), 16));
+  }
+  return bytes;
+}
+
+function bytesToCMap2(bytes: number[], cmap: Map<number, string>): string {
+  if (bytes.length < 2 || bytes.length % 2 !== 0) return '';
+  let out = '';
+  for (let i = 0; i + 1 < bytes.length; i += 2) {
+    const cid = (bytes[i] << 8) | bytes[i + 1];
+    const mapped = cmap.get(cid);
+    if (mapped) out += mapped;
+  }
+  return out;
+}
+
+function bytesToCMap1(bytes: number[], cmap: Map<number, string>): string {
+  let out = '';
+  let mappedCount = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    const mapped = cmap.get(bytes[i]);
+    if (mapped) {
+      out += mapped;
+      mappedCount++;
     }
   }
-
-  if (cmaps && cmaps.length > 0 && bytes.length > 0) {
-    const extras: string[] = [];
-    for (const cmap of cmaps) {
-      if (cmap.size === 0) continue;
-      const mapped = applyCMapToBytes(bytes, cmap);
-      if (mapped) extras.push(mapped);
-    }
-    if (extras.length > 0) {
-      return asciiOut ? `${asciiOut} ${extras.join(' ')}` : extras.join(' ');
-    }
-  }
-
-  return asciiOut;
+  return mappedCount > 0 ? out : '';
 }
 
 function decodeHexToUnicode(hex: string): string {
@@ -461,13 +421,13 @@ function parseToUnicodeCMap(content: string, cmaps: Array<Map<number, string>>):
     }
   }
 
-  if (localMap.size > 0) {
+  if (localMap.size > 0 && cmaps.length < 24) {
     cmaps.push(localMap);
   }
 }
 
-function extractLiteralStringsWithBalancedParens(content: string, cmaps?: Array<Map<number, string>>): string[] {
-  const results: string[] = [];
+function extractLiteralByteTokensWithBalancedParens(content: string): number[][] {
+  const results: number[][] = [];
   let i = 0;
   const n = content.length;
   while (i < n) {
@@ -490,22 +450,28 @@ function extractLiteralStringsWithBalancedParens(content: string, cmaps?: Array<
     }
     if (depth === 0) {
       const inner = content.slice(start, i - 1);
-      const decoded = decodePdfLiteralString(inner, cmaps);
-      if (decoded.length >= 1) results.push(decoded);
+      const bytes = decodeLiteralToBytes(inner);
+      if (bytes.length > 0) results.push(bytes);
     }
   }
   return results;
 }
 
-function extractStringsFromStreamContent(content: string, cmaps?: Array<Map<number, string>>): string {
-  const chunks: string[] = [];
+function extractStringsFromStreamContent(content: string, cmaps: Array<Map<number, string>>): string {
+  const asciiChunks: string[] = [];
+  const cmap2Chunks: string[][] = cmaps.map(() => []);
+  const cmap1Chunks: string[][] = cmaps.map(() => []);
 
   // 1. Reconstruct words across kerning arrays: [(H) -15 (andtmann)] TJ or [<0048> -10 <0061...>] TJ
+  // Keep ASCII reconstruction completely separate from each CMap reconstruction so characters never interleave mid-word.
   const tjArrayRe = /\[([^\[\]]{1,8000})\]\s*TJ/g;
   let m: RegExpExecArray | null;
   while ((m = tjArrayRe.exec(content)) !== null) {
     const inner = m[1];
-    let line = '';
+    let asciiLine = '';
+    const c2Lines = cmaps.map(() => '');
+    const c1Lines = cmaps.map(() => '');
+
     let idx = 0;
     while (idx < inner.length) {
       const ch = inner[idx];
@@ -522,17 +488,33 @@ function extractStringsFromStreamContent(content: string, cmaps?: Array<Map<numb
           else if (inner[idx] === ')') depth--;
           idx++;
         }
-        line += decodePdfLiteralString(inner.slice(start, Math.max(start, idx - 1)), cmaps);
+        const bytes = decodeLiteralToBytes(inner.slice(start, Math.max(start, idx - 1)));
+        asciiLine += bytesToAscii(bytes);
+        for (let c = 0; c < cmaps.length; c++) {
+          c2Lines[c] += bytesToCMap2(bytes, cmaps[c]);
+          c1Lines[c] += bytesToCMap1(bytes, cmaps[c]);
+        }
       } else if (ch === '<') {
         const end = inner.indexOf('>', idx + 1);
         if (end === -1) break;
-        line += decodePdfHexString(inner.slice(idx + 1, end), cmaps);
+        const bytes = decodeHexToBytes(inner.slice(idx + 1, end));
+        asciiLine += bytesToAscii(bytes);
+        for (let c = 0; c < cmaps.length; c++) {
+          c2Lines[c] += bytesToCMap2(bytes, cmaps[c]);
+          c1Lines[c] += bytesToCMap1(bytes, cmaps[c]);
+        }
         idx = end + 1;
       } else if (ch === '-' || (ch >= '0' && ch <= '9')) {
         const numMatch = /^-?\d+(?:\.\d+)?/.exec(inner.slice(idx));
         if (numMatch) {
           const kern = parseFloat(numMatch[0]);
-          if (kern < -120) line += ' ';
+          if (kern < -120) {
+            asciiLine += ' ';
+            for (let c = 0; c < cmaps.length; c++) {
+              c2Lines[c] += ' ';
+              c1Lines[c] += ' ';
+            }
+          }
           idx += numMatch[0].length;
         } else {
           idx++;
@@ -541,88 +523,196 @@ function extractStringsFromStreamContent(content: string, cmaps?: Array<Map<numb
         idx++;
       }
     }
-    const trimmed = line.trim();
-    if (trimmed.length >= 1) chunks.push(trimmed);
+
+    if (asciiLine.trim()) asciiChunks.push(asciiLine.trim());
+    for (let c = 0; c < cmaps.length; c++) {
+      if (c2Lines[c].trim()) cmap2Chunks[c].push(c2Lines[c].trim());
+      if (c1Lines[c].trim()) cmap1Chunks[c].push(c1Lines[c].trim());
+    }
   }
 
-  // 2. Literal strings (...) with full support for nested balanced parentheses like "(Company (Pty) Ltd)"
-  const litTokens = extractLiteralStringsWithBalancedParens(content, cmaps);
-  if (litTokens.length > 0) {
-    chunks.push(litTokens.join(''));
-    chunks.push(litTokens.join(' '));
+  // 2. Literal strings (...) with support for nested balanced parentheses like "(Company (Pty) Ltd)"
+  const litByteTokens = extractLiteralByteTokensWithBalancedParens(content);
+  if (litByteTokens.length > 0) {
+    const asciiTokens = litByteTokens.map(bytesToAscii).filter(Boolean);
+    if (asciiTokens.length > 0) {
+      asciiChunks.push(asciiTokens.join(''));
+      asciiChunks.push(asciiTokens.join(' '));
+    }
+    for (let c = 0; c < cmaps.length; c++) {
+      const t2 = litByteTokens.map((b) => bytesToCMap2(b, cmaps[c])).filter(Boolean);
+      if (t2.length > 0) cmap2Chunks[c].push(t2.join(''), t2.join(' '));
+      const t1 = litByteTokens.map((b) => bytesToCMap1(b, cmaps[c])).filter(Boolean);
+      if (t1.length > 0) cmap1Chunks[c].push(t1.join(''), t1.join(' '));
+    }
   }
 
   // 3. Hex strings <...>
   const hexRe = /<([0-9A-Fa-f\s]{2,})>/g;
-  const hexTokens: string[] = [];
+  const hexByteTokens: number[][] = [];
   while ((m = hexRe.exec(content)) !== null) {
-    const decoded = decodePdfHexString(m[1], cmaps).trim();
-    if (decoded.length >= 1) hexTokens.push(decoded);
+    const bytes = decodeHexToBytes(m[1]);
+    if (bytes.length > 0) hexByteTokens.push(bytes);
   }
-  if (hexTokens.length > 0) {
-    chunks.push(hexTokens.join(''));
-    chunks.push(hexTokens.join(' '));
+  if (hexByteTokens.length > 0) {
+    const asciiHex = hexByteTokens.map(bytesToAscii).filter(Boolean);
+    if (asciiHex.length > 0) {
+      asciiChunks.push(asciiHex.join(''));
+      asciiChunks.push(asciiHex.join(' '));
+    }
+    for (let c = 0; c < cmaps.length; c++) {
+      const t2 = hexByteTokens.map((b) => bytesToCMap2(b, cmaps[c])).filter(Boolean);
+      if (t2.length > 0) cmap2Chunks[c].push(t2.join(''), t2.join(' '));
+      const t1 = hexByteTokens.map((b) => bytesToCMap1(b, cmaps[c])).filter(Boolean);
+      if (t1.length > 0) cmap1Chunks[c].push(t1.join(''), t1.join(' '));
+    }
   }
 
-  return chunks.join(' ');
+  const allParts: string[] = [...asciiChunks];
+  for (let c = 0; c < cmaps.length; c++) {
+    if (cmap2Chunks[c].length > 0) allParts.push(cmap2Chunks[c].join(' '));
+    if (cmap1Chunks[c].length > 0) allParts.push(cmap1Chunks[c].join(' '));
+  }
+  return allParts.join(' ');
 }
 
-async function tryInflate(data: Uint8Array): Promise<string | null> {
-  if (typeof DecompressionStream === 'undefined') return null;
-  for (const format of ['deflate', 'deflate-raw'] as const) {
-    try {
-      const ds = new DecompressionStream(format);
-      const writer = ds.writable.getWriter();
-      writer.write(data as unknown as BufferSource).catch(() => {});
-      writer.close().catch(() => {});
-      const reader = ds.readable.getReader();
-      const parts: Uint8Array[] = [];
-      let total = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          parts.push(value);
-          total += value.byteLength;
-          if (total > 1_000_000) break;
-        }
+function bytesToLatin1String(bytes: Uint8Array): string {
+  const CHUNK = 0x8000;
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const sub = bytes.subarray(i, Math.min(i + CHUNK, bytes.length));
+    parts.push(String.fromCharCode.apply(null, sub as unknown as number[]));
+  }
+  return parts.join('');
+}
+
+async function inflateOnce(buf: Uint8Array, format: 'deflate' | 'deflate-raw'): Promise<string | null> {
+  if (buf.length < 2) return null;
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  try {
+    const ds = new DecompressionStream(format);
+    const writer = ds.writable.getWriter();
+    const reader = ds.readable.getReader();
+    writer.write(buf as unknown as BufferSource).catch(() => {});
+    writer.close().catch(() => {});
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value && value.byteLength > 0) {
+        parts.push(value);
+        total += value.byteLength;
+        if (total > 1_000_000) break;
       }
-      const merged = new Uint8Array(total);
-      let offset = 0;
-      for (const p of parts) {
-        merged.set(p, offset);
-        offset += p.byteLength;
-      }
-      return new TextDecoder('latin1').decode(merged);
-    } catch {
-      // try next format
     }
+  } catch {
+    // Preserve any chunks already read into `parts`
+  }
+  if (total > 0) {
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    for (const p of parts) {
+      merged.set(p, offset);
+      offset += p.byteLength;
+    }
+    return bytesToLatin1String(merged);
   }
   return null;
 }
 
+async function tryInflate(data: Uint8Array): Promise<string | null> {
+  if (typeof DecompressionStream === 'undefined' || data.length < 2) return null;
+
+  // Strip trailing PDF stream padding bytes (spaces, CR, LF, tabs, nulls) before 'endstream'
+  let end = data.length;
+  while (
+    end > 2 &&
+    (data[end - 1] === 0x00 ||
+      data[end - 1] === 0x09 ||
+      data[end - 1] === 0x0a ||
+      data[end - 1] === 0x0d ||
+      data[end - 1] === 0x20)
+  ) {
+    end--;
+  }
+  const trimmed = end < data.length ? data.subarray(0, end) : data;
+
+  if (trimmed[0] === 0x78) {
+    const res1 = await inflateOnce(trimmed, 'deflate');
+    if (res1) return res1;
+    if (trimmed.length !== data.length) {
+      const res2 = await inflateOnce(data, 'deflate');
+      if (res2) return res2;
+    }
+    // Fallback: strip 2-byte zlib header (0x78 0x..) and 4-byte Adler32 trailer and inflate as raw deflate
+    if (trimmed.length > 6) {
+      const res3 = await inflateOnce(trimmed.subarray(2, trimmed.length - 4), 'deflate-raw');
+      if (res3) return res3;
+    }
+    return null;
+  }
+
+  const rawRes = await inflateOnce(trimmed, 'deflate-raw');
+  if (rawRes) return rawRes;
+  return inflateOnce(trimmed, 'deflate');
+}
+
+// Fast in-memory cache so repeated calls on the same PDF buffer never re-run decompression or detection
+const pdfBufferCache = new WeakMap<Uint8Array, { text: string; detection: SupplierDetectionResult }>();
+const pdfFingerprintCache = new Map<string, { text: string; detection: SupplierDetectionResult }>();
+
+function computePdfFingerprint(bytes: Uint8Array): string {
+  const len = bytes.byteLength;
+  let h1 = 0x811c9dc5;
+  const step = Math.max(1, Math.floor(len / 512));
+  for (let i = 0; i < len; i += step) {
+    h1 ^= bytes[i];
+    h1 = Math.imul(h1, 0x01000193) >>> 0;
+  }
+  return `${len}:${h1.toString(16)}`;
+}
+
+const SKIP_BINARY_STREAM_DICT_RE = /\/Subtype\s*\/Image|\/Filter\s*\/(?:DCTDecode|JPXDecode|CCITTFaxDecode|JBIG2Decode)|\/FontFile[123]?\b/i;
+
 /**
- * Extracts readable text from a PDF byte buffer (uncompressed text + FlateDecode streams + ToUnicode CMaps)
- * and runs deterministic supplier detection on it.
+ * Extracts readable text from a PDF byte buffer (uncompressed text + FlateDecode streams + ToUnicode CMaps).
+ * Caches and reuses extracted text for identical PDF buffers.
  */
 export async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
-  const rawLatin1 = new TextDecoder('latin1').decode(bytes);
+  const cachedByRef = pdfBufferCache.get(bytes);
+  if (cachedByRef) return cachedByRef.text;
+
+  const fp = computePdfFingerprint(bytes);
+  const cachedByFp = pdfFingerprintCache.get(fp);
+  if (cachedByFp) {
+    pdfBufferCache.set(bytes, cachedByFp);
+    return cachedByFp.text;
+  }
+
+  // Use true 1-to-1 ISO-8859-1 conversion so char indices match `bytes` offsets 1:1 and 0x80..0x9F are never corrupted
+  const rawLatin1 = bytesToLatin1String(bytes);
   const parts: string[] = [];
   const cmaps: Array<Map<number, string>> = [];
 
   parseToUnicodeCMap(rawLatin1, cmaps);
 
-  // Decompress up to 200 FlateDecode streams; first pass collects ToUnicode CMaps, second extracts text
   const inflatedStreams: string[] = [];
-  const streamRe = /stream[ \t]*(?:\r\n|\r|\n)([\s\S]*?)(?:\r\n|\r|\n)?endstream/g;
+  const streamRe = /(stream[ \t]*(?:\r\n|\r|\n))([\s\S]*?)((?:\r\n|\r|\n)?endstream)/g;
   let match: RegExpExecArray | null;
   let count = 0;
-  while ((match = streamRe.exec(rawLatin1)) !== null && count < 200) {
-    const body = match[1];
-    if (body.length < 4 || body.length > 750_000) continue;
+  while ((match = streamRe.exec(rawLatin1)) !== null && count < 120) {
+    const prefixLen = match[1].length;
+    const bodyLen = match[2].length;
+    if (bodyLen < 4 || bodyLen > 750_000) continue;
+
+    // Inspect the preceding object dictionary (~250 chars before 'stream') to skip binary image/font streams
+    const dictStart = Math.max(0, match.index - 260);
+    const dictHeader = rawLatin1.slice(dictStart, match.index);
+    if (SKIP_BINARY_STREAM_DICT_RE.test(dictHeader)) continue;
+
     count++;
-    const streamBytes = new Uint8Array(body.length);
-    for (let i = 0; i < body.length; i++) streamBytes[i] = body.charCodeAt(i) & 0xff;
+    const bodyStart = match.index + prefixLen;
+    const streamBytes = bytes.subarray(bodyStart, bodyStart + bodyLen);
     const inflated = await tryInflate(streamBytes);
     if (inflated) {
       parseToUnicodeCMap(inflated, cmaps);
@@ -646,11 +736,40 @@ export async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string
     if (extracted) parts.push(extracted);
   }
 
-  return parts.join(' ').replace(/\s+/g, ' ').trim();
+  const text = parts.join(' ').replace(/\s+/g, ' ').trim();
+  const detection = detectSupplierFromText(text);
+  const entry = { text, detection };
+  pdfBufferCache.set(bytes, entry);
+  if (pdfFingerprintCache.size > 50) {
+    const firstKey = pdfFingerprintCache.keys().next().value;
+    if (firstKey) pdfFingerprintCache.delete(firstKey);
+  }
+  pdfFingerprintCache.set(fp, entry);
+  return text;
+}
+
+export async function detectSupplierFromPdfBytesWithText(
+  bytes: Uint8Array,
+): Promise<{ text: string; detection: SupplierDetectionResult }> {
+  const cachedByRef = pdfBufferCache.get(bytes);
+  if (cachedByRef) return cachedByRef;
+
+  const fp = computePdfFingerprint(bytes);
+  const cachedByFp = pdfFingerprintCache.get(fp);
+  if (cachedByFp) {
+    pdfBufferCache.set(bytes, cachedByFp);
+    return cachedByFp;
+  }
+
+  const text = await extractTextFromPdfBytes(bytes);
+  const after = pdfBufferCache.get(bytes) || pdfFingerprintCache.get(fp);
+  if (after) return after;
+  const detection = detectSupplierFromText(text);
+  return { text, detection };
 }
 
 export async function detectSupplierFromPdfBytes(bytes: Uint8Array): Promise<SupplierDetectionResult> {
-  const text = await extractTextFromPdfBytes(bytes);
-  return detectSupplierFromText(text);
+  const { detection } = await detectSupplierFromPdfBytesWithText(bytes);
+  return detection;
 }
 

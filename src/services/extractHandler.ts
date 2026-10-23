@@ -55,7 +55,8 @@ export async function handleDetectSupplier(body: any, apiKey: string | undefined
   }
 
   try {
-    const detection = await detectSupplierFromPdf(pdfBase64, apiKey);
+    const extractedText = typeof body?.extractedText === 'string' ? body.extractedText : undefined;
+    const detection = await detectSupplierFromPdf(pdfBase64, apiKey, extractedText);
     return { status: 200, body: { success: true, detection } };
   } catch (err: any) {
     console.error('Supplier detection error:', err);

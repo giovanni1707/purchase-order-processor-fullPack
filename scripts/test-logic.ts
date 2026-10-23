@@ -238,6 +238,61 @@ async function pipe(answers: RawExtraction[]) {
   );
   eq('detect Multivac when German MULTIVAC Service und Logistik issues quote to Multivac SA', [mToMultivacSA.supplier, mToMultivacSA.confidence, mToMultivacSA.detectedName], ['multivac', 'high', 'Multivac']);
 
+  // Multi-font PDF with 1-byte CMap AND ASCII TJ kerning arrays (verifies no mid-word CMap character interleaving)
+  const multiFontBizerbaPdf = new TextEncoder().encode(
+    '%PDF-1.4\n1 0 obj\nstream\nbeginbfchar\n<42> <0051>\n<69> <0057>\n<7A> <0045>\nendbfchar\nendstream\n2 0 obj\nstream\nBT [(Bizer) -10 (ba SE & Co. KG )] TJ [(72336 ) -15 (Balingen )] TJ [(www.bizer) -5 (ba.com)] TJ ET\nendstream\n%%EOF',
+  );
+  const mfb = await detectSupplierFromPdfBytes(multiFontBizerbaPdf);
+  eq('multi-font PDF with 1-byte CMap does not corrupt ASCII TJ kerning for Bizerba', [mfb.supplier, mfb.confidence, mfb.detectedName], ['bizerba', 'high', 'Bizerba']);
+
+  const multiFontHandtmannPdf = new TextEncoder().encode(
+    '%PDF-1.4\n1 0 obj\nstream\nbeginbfchar\n<34> <0058>\n<37> <0059>\n<30> <005A>\nendbfchar\nendstream\n2 0 obj\nstream\nBT [(MULTIVAC ) -10 (SOUTHERN ) -10 (AFRICA ) -5 ((Pty) Ltd )] TJ [(VAT: ) -10 (4770) -5 (217620 )] TJ [(PostNet ) -5 (Suite 514, ) -5 (Heidelberg, 1438)] TJ ET\nendstream\n%%EOF',
+  );
+  const mfh = await detectSupplierFromPdfBytes(multiFontHandtmannPdf);
+  eq('multi-font PDF with 1-byte CMap does not corrupt ASCII TJ kerning for Handtmann', [mfh.supplier, mfh.confidence, mfh.detectedName], ['handtmann', 'high', 'Handtmann']);
+
+  // FlateDecode stream with trailing padding/newline bytes before endstream
+  const zlibMod = await import('zlib');
+  const makeFlatePdf = (streamContent: string) => {
+    const comp = Buffer.concat([
+      zlibMod.deflateSync(Buffer.from(streamContent, 'latin1')),
+      Buffer.from('  \r\n\0\n', 'latin1'),
+    ]);
+    return new Uint8Array(
+      Buffer.concat([
+        Buffer.from('%PDF-1.4\n1 0 obj << /Filter /FlateDecode >>\nstream\r\n', 'latin1'),
+        comp,
+        Buffer.from('\r\nendstream\nendobj\n%%EOF', 'latin1'),
+      ]),
+    );
+  };
+
+  const flatePdfs: Record<'multivac' | 'bizerba' | 'handtmann' | 'other', Uint8Array> = {
+    multivac: makeFlatePdf(
+      'BT (MULTIVAC Service und Logistik GmbH & Co. KG Gewerbestrasse 15, 87787 Wolfertschwenden, Germany +49 (0) 8334 601-0 muwo@multivac.de DE 364316979 Amtsgericht Memmingen, HRA 13980) Tj ET',
+    ),
+    bizerba: makeFlatePdf(
+      'BT (Bizerba SE & Co. KG Wilhelm-Kraut-Strasse 65 72336 Balingen www.bizerba.com Item Description Qty Net Price) Tj ET',
+    ),
+    handtmann: makeFlatePdf(
+      'BT (MULTIVAC SOUTHERN AFRICA (Pty) Ltd VAT Registration Number: 4770217620 PostNet Suite 514, Private Bag H607, Heidelberg, 1438 +27 (0) 16 340 5800 +27 (0) 16 340 5819) Tj ET',
+    ),
+    other: makeFlatePdf(
+      'BT (ULMA Packaging GmbH Customer: MULTIVAC Quotation No. 99412 Reference Description Unit Price Quantity Total EUR) Tj ET',
+    ),
+  };
+
+  for (const cat of ['multivac', 'bizerba', 'handtmann', 'other'] as const) {
+    const t0 = performance.now();
+    const flateDet = await detectSupplierFromPdfBytes(flatePdfs[cat]);
+    const elapsedMs = performance.now() - t0;
+    ok(
+      `FlateDecode compressed PDF for ${cat} decoded and detected in <50ms (${elapsedMs.toFixed(2)}ms)`,
+      flateDet.supplier === cat && flateDet.confidence === 'high' && elapsedMs < 50,
+      { flateDet, elapsedMs },
+    );
+  }
+
   // All 16 (Selected Tab x Uploaded PDF) combinations verification using exact company details + realistic customer/bank/metadata tokens
   const samplePdfs: Record<'multivac' | 'bizerba' | 'handtmann' | 'other', Uint8Array> = {
     multivac: new TextEncoder().encode(
@@ -253,6 +308,14 @@ async function pipe(answers: RawExtraction[]) {
       '%PDF-1.4\nstream\n(ULMA Packaging GmbH Customer: MULTIVAC Quotation No. 99412 Reference Description Unit Price Quantity Total EUR) Tj\nendstream\n%%EOF',
     ),
   };
+
+  // Verify detection speed is fast (< 50ms) across all 4 supplier categories
+  for (const cat of ['multivac', 'bizerba', 'handtmann', 'other'] as const) {
+    const t0 = performance.now();
+    const d = await detectSupplierFromPdfBytes(samplePdfs[cat]);
+    const elapsedMs = performance.now() - t0;
+    ok(`fast local detection (<50ms) for ${cat} (${elapsedMs.toFixed(2)}ms)`, d.supplier === cat && d.confidence === 'high' && elapsedMs < 50, { d, elapsedMs });
+  }
 
   const scenarios: Array<{ no: number; selected: 'multivac' | 'bizerba' | 'handtmann' | 'other'; uploaded: 'multivac' | 'bizerba' | 'handtmann' | 'other' }> = [
     { no: 1, selected: 'multivac', uploaded: 'other' },
