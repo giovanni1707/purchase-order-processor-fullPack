@@ -388,6 +388,33 @@ async function pipe(answers: RawExtraction[]) {
   const { act } = await import('react');
   const { createRoot } = await import('react-dom/client');
   const { default: App } = await import('../src/App');
+  const { default: McbExchangeRatesSection } = await import('../src/components/McbExchangeRatesSection');
+  const {
+    MCB_EXCHANGE_RATES_API_URL,
+    formatExchangeRate,
+    parseMcbExchangeRatesResponse,
+  } = await import('../src/services/mcbExchangeRates');
+
+  // Mock globalThis.fetch for fast, deterministic JSDOM tests
+  (globalThis as any).fetch = async (url: string) => {
+    if (String(url) === MCB_EXCHANGE_RATES_API_URL) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          source: 'MCB Mauritius',
+          rateDate: '28/10/2026',
+          rates: {
+            EUR: { currency: 'EUR', sellingRate: 53.66 },
+            ZAR: { currency: 'ZAR', sellingRate: 3.09 },
+          },
+        }),
+      };
+    }
+    throw new Error(`Unexpected fetch URL: ${url}`);
+  };
+
   const labelMap: Record<'multivac' | 'bizerba' | 'handtmann' | 'other', string> = {
     multivac: 'Multivac',
     bizerba: 'Bizerba',
@@ -436,6 +463,120 @@ async function pipe(answers: RawExtraction[]) {
       [isActive, !!mismatchEl],
       [true, expectedMismatch],
     );
+
+    await act(async () => {
+      root.unmount();
+    });
+  }
+
+  // ----------------------------------------- MCB Exchange Rates verification
+  {
+    const parsed = parseMcbExchangeRatesResponse(
+      {
+        success: true,
+        source: 'MCB Mauritius',
+        rateDate: '28/10/2026',
+        rates: {
+          EUR: { currency: 'EUR', sellingRate: 53.6 },
+          ZAR: { currency: 'ZAR', sellingRate: 3.0945 },
+        },
+      },
+      new Date('2026-10-28T10:00:00Z'),
+    );
+    eq('MCB parser preserves exact numeric values and formats to 2 decimal places', [
+      parsed.eurSellingRate,
+      parsed.zarSellingRate,
+      formatExchangeRate(parsed.eurSellingRate),
+      formatExchangeRate(parsed.zarSellingRate),
+      parsed.rateDate,
+      parsed.source,
+    ], [53.6, 3.0945, '53.60', '3.09', '28/10/2026', 'MCB Mauritius']);
+
+    let invalidCaught = false;
+    try {
+      parseMcbExchangeRatesResponse({ success: true, rateDate: '28/10/2026', rates: { EUR: { sellingRate: 53.66 } } });
+    } catch {
+      invalidCaught = true;
+    }
+    ok('MCB parser rejects missing ZAR sellingRate', invalidCaught);
+
+    // UI: Verify initial load, refresh update, and retention of previous rates when refresh fails
+    let callCount = 0;
+    const mockFetch: any = async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            source: 'MCB Mauritius',
+            rateDate: '28/10/2026',
+            rates: {
+              EUR: { currency: 'EUR', sellingRate: 53.66 },
+              ZAR: { currency: 'ZAR', sellingRate: 3.09 },
+            },
+          }),
+        };
+      }
+      if (callCount === 2) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            source: 'MCB Mauritius',
+            rateDate: '29/10/2026',
+            rates: {
+              EUR: { currency: 'EUR', sellingRate: 54.1 },
+              ZAR: { currency: 'ZAR', sellingRate: 3.15 },
+            },
+          }),
+        };
+      }
+      throw new Error('Network error');
+    };
+
+    document.body.innerHTML = '<div id="root"></div>';
+    const root = createRoot(document.getElementById('root')!);
+    await act(async () => {
+      root.render(React.createElement(McbExchangeRatesSection, { fetchImpl: mockFetch }));
+    });
+
+    const eurRateEl = () => document.querySelector('[data-testid="mcb-rate-eur"]');
+    const zarRateEl = () => document.querySelector('[data-testid="mcb-rate-zar"]');
+    const rateDateEl = () => document.querySelector('[data-testid="mcb-rate-date"]');
+    const lastRefreshedEl = () => document.querySelector('[data-testid="mcb-last-refreshed"]');
+    const refreshBtn = () => document.querySelector('[data-testid="mcb-refresh-button"]') as HTMLButtonElement;
+
+    eq('MCB UI initial render shows EUR & ZAR selling rates and MCB Rate Date', [
+      eurRateEl()?.textContent,
+      zarRateEl()?.textContent,
+      rateDateEl()?.textContent,
+      Boolean(lastRefreshedEl()?.textContent),
+    ], ['53.66', '3.09', '28/10/2026', true]);
+
+    // Click Refresh -> updates to 2nd response (54.10 and 3.15)
+    await act(async () => {
+      refreshBtn().dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    });
+    eq('MCB UI manual refresh updates EUR & ZAR rates and MCB Rate Date', [
+      eurRateEl()?.textContent,
+      zarRateEl()?.textContent,
+      rateDateEl()?.textContent,
+    ], ['54.10', '3.15', '29/10/2026']);
+
+    // Click Refresh again -> 3rd call fails; must retain 54.10 & 3.15 and show refresh failure notice
+    await act(async () => {
+      refreshBtn().dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    });
+    const refreshErrorBanner = document.querySelector('[data-testid="mcb-refresh-error-banner"]');
+    eq('MCB UI failed refresh retains last valid rates and displays refresh error banner', [
+      eurRateEl()?.textContent,
+      zarRateEl()?.textContent,
+      rateDateEl()?.textContent,
+      Boolean(refreshErrorBanner),
+    ], ['54.10', '3.15', '29/10/2026', true]);
 
     await act(async () => {
       root.unmount();

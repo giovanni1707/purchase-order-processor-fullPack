@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, FileText, Loade
 import { MODES, MODE_IDS, buildPurchaseOrder, inspectWorkbook, verifyWorkbook } from './engine';
 import type { CheckResult, DetailsMode, PoMode, QuoteItem, WorkbookInspection } from './engine';
 import Clarification, { type ChatMessage } from './components/Clarification';
+import McbExchangeRatesSection from './components/McbExchangeRatesSection';
 import {
   COLUMN_LABEL,
   DEFAULT_COLUMNS,
@@ -597,6 +598,8 @@ export default function App() {
       <div className="mx-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-xl font-semibold">MULTIVAC Purchase Order</h1>
         <p className="mt-1 text-sm text-slate-500">Fills the quotation and purchase order sheets from a quotation PDF.</p>
+
+        <McbExchangeRatesSection />
 
         {showForm && (
           <div className="mt-6 space-y-4">
